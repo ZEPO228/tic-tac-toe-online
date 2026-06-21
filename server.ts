@@ -1,8 +1,4 @@
 // Production server: Next.js + Socket.io on a single port.
-// Used on Railway (production). Local dev uses `next dev` + mini-service.
-//
-// Run with: bun server.ts  (or: node server.js after compilation)
-// PORT env var is respected (Railway sets this automatically).
 
 import { createServer, IncomingMessage, ServerResponse } from 'http'
 import { parse } from 'url'
@@ -20,8 +16,8 @@ async function main() {
   if (!dev && process.env.DATABASE_URL) {
     try {
       console.log('[server] Pushing Prisma schema to database...')
-      execSync('bun run db:push --accept-data-loss', { stdio: 'inherit', env: process.env })
-      console.log('[server] Database schema pushed successfully')
+      execSync('npx prisma db push --accept-data-loss 2>&1 || true', { stdio: 'inherit', env: process.env })
+      console.log('[server] Database schema push attempted')
     } catch (e) {
       console.error('[server] Failed to push schema (continuing anyway):', e)
     }
