@@ -19,13 +19,16 @@ export function getSocket(): Socket | null {
 
   socket = ioClient(socketUrl, {
     auth: { token },
-    // Polling only - Railway's proxy has issues with websocket upgrades
     transports: ['polling'],
     reconnection: true,
     reconnectionAttempts: Infinity,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 2000,
     upgrade: false,
+    // Increase timeouts for Railway
+    timeout: 60000,
+    pingInterval: 10000,
+    pingTimeout: 30000,
   })
 
   socket.on('connect_error', (err) => {
@@ -38,6 +41,11 @@ export function getSocket(): Socket | null {
 
   socket.on('disconnect', (reason) => {
     console.warn('[socket] disconnected:', reason)
+  })
+
+  // Auto-rejoin game on reconnect
+  socket.on('reconnect', () => {
+    console.log('[socket] reconnected')
   })
 
   return socket
