@@ -2,7 +2,7 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "next build"
+    "buildCommand": "bash prisma/prebuild.sh && next build"
   },
   "deploy": {
     "startCommand": "bun server.ts",
