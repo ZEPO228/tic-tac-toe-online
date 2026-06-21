@@ -107,35 +107,35 @@ export function PrivateChatView() {
     setSending(true)
     setText('')
 
-    // Try socket.io first for real-time
-    const socket = socketRef.current
-    if (socket && socket.connected) {
-      socket.emit('dm_send', { recipientId: selectedPlayerId, text: trimmed })
-      // Optimistically add message — it'll come back via dm_message echo
-    } else {
-      // Fallback: HTTP API
-      try {
-        const res = await fetch('/api/direct-messages/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recipientId: selectedPlayerId, text: trimmed }),
-        })
-        if (res.ok) {
-          const data = await res.json()
-          if (data.message) {
-            setMessages(prev => {
-              if (prev.some(m => m.id === data.message.id)) return prev
-              return [...prev, data.message]
-            })
+    // Always use HTTP API for sending (reliable) — socket.io is only for real-time notification
+    try {
+      const res = await fetch('/api/direct-messages/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipientId: selectedPlayerId, text: trimmed }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.message) {
+          // Add to local messages immediately
+          setMessages(prev => {
+            if (prev.some(m => m.id === data.message.id)) return prev
+            return [...prev, data.message]
+          })
+          // Also notify via socket for real-time (if connected)
+          const socket = socketRef.current
+          if (socket && socket.connected) {
+            socket.emit('dm_send', { recipientId: selectedPlayerId, text: trimmed })
           }
-        } else {
-          showToast('error', 'Не удалось отправить сообщение')
-          setText(trimmed) // Restore text
         }
-      } catch (e) {
-        showToast('error', 'Сетевая ошибка')
-        setText(trimmed)
+      } else {
+        const errData = await res.json().catch(() => ({}))
+        showToast('error', errData.error || 'Не удалось отправить сообщение')
+        setText(trimmed) // Restore text
       }
+    } catch (e) {
+      showToast('error', 'Сетевая ошибка')
+      setText(trimmed)
     }
 
     setTimeout(() => setSending(false), 200)

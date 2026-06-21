@@ -32,6 +32,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
+      <head>
+        {/* Apply theme before paint to avoid FOUC */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function() {
+            try {
+              var t = localStorage.getItem('ttt_theme');
+              if (t === 'dark') document.documentElement.classList.add('dark');
+              else if (t === 'light') document.documentElement.classList.add('light');
+              // 'system' or null: no class, CSS media query handles it
+            } catch(e) {}
+          })();
+        `}} />
+      </head>
       <body
         className={`${geistSans.variable} antialiased bg-background text-foreground overscroll-none`}
       >

@@ -4,15 +4,17 @@ import { motion } from 'framer-motion'
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { ArrowLeft, Volume2, Vibrate, Moon, Info } from 'lucide-react'
+import { ArrowLeft, Volume2, Vibrate, Sun, Moon, Monitor, Info, Check } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useTheme, ThemeMode } from '@/lib/use-theme'
+import { AnimatedLogo } from './AnimatedLogo'
 
 export function SettingsView() {
   const { setView, showToast } = useAppStore()
+  const { theme, setTheme } = useTheme()
   const [settings, setSettings] = useState({
     sound: true,
     vibrate: true,
-    darkTheme: true,
     autoQueue: false,
   })
 
@@ -21,7 +23,13 @@ export function SettingsView() {
     const saved = localStorage.getItem('ttt_settings')
     if (saved) {
       try {
-        setSettings(JSON.parse(saved))
+        const parsed = JSON.parse(saved)
+        // Don't load darkTheme anymore — use the new theme system
+        setSettings({
+          sound: parsed.sound ?? true,
+          vibrate: parsed.vibrate ?? true,
+          autoQueue: parsed.autoQueue ?? false,
+        })
       } catch {}
     }
   }, [])
@@ -35,6 +43,18 @@ export function SettingsView() {
     }
     showToast('success', 'Настройки сохранены')
   }
+
+  function handleThemeChange(mode: ThemeMode) {
+    setTheme(mode)
+    const labels = { dark: 'Тёмная тема', light: 'Светлая тема', system: 'Системная тема' }
+    showToast('success', labels[mode] + ' включена')
+  }
+
+  const themeOptions: { mode: ThemeMode; label: string; icon: any; desc: string }[] = [
+    { mode: 'system', label: 'Системная', icon: Monitor, desc: 'Как в ОС' },
+    { mode: 'dark', label: 'Тёмная', icon: Moon, desc: 'Тёмная тема' },
+    { mode: 'light', label: 'Светлая', icon: Sun, desc: 'Светлая тема' },
+  ]
 
   return (
     <motion.div
@@ -58,6 +78,43 @@ export function SettingsView() {
 
         {/* Settings groups */}
         <div className="space-y-4">
+          {/* Theme selector */}
+          <div className="bg-card/50 border border-border rounded-2xl overflow-hidden">
+            <div className="px-4 pt-4 pb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Тема оформления
+            </div>
+            <div className="grid grid-cols-3 gap-2 p-3">
+              {themeOptions.map((opt) => {
+                const isSelected = theme === opt.mode
+                return (
+                  <button
+                    key={opt.mode}
+                    onClick={() => handleThemeChange(opt.mode)}
+                    className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                      isSelected
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border hover:border-primary/40 bg-secondary/30'
+                    }`}
+                  >
+                    <opt.icon className={`w-6 h-6 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <div className="text-xs font-medium">{opt.label}</div>
+                    <div className="text-[10px] text-muted-foreground">{opt.desc}</div>
+                    {isSelected && (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground rounded-full p-0.5"
+                      >
+                        <Check className="w-3 h-3" strokeWidth={3} />
+                      </motion.div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Other settings */}
           <div className="bg-card/50 border border-border rounded-2xl overflow-hidden">
             <SettingRow
               icon={<Volume2 className="w-4 h-4" />}
@@ -80,17 +137,6 @@ export function SettingsView() {
                 onCheckedChange={(v) => update('vibrate', v)}
               />
             </SettingRow>
-            <div className="border-t border-border" />
-            <SettingRow
-              icon={<Moon className="w-4 h-4" />}
-              title="Тёмная тема"
-              desc="Всегда использовать тёмную тему"
-            >
-              <Switch
-                checked={settings.darkTheme}
-                onCheckedChange={(v) => update('darkTheme', v)}
-              />
-            </SettingRow>
           </div>
 
           <div className="bg-card/50 border border-border rounded-2xl overflow-hidden">
@@ -108,10 +154,10 @@ export function SettingsView() {
 
           {/* About */}
           <div className="bg-card/30 border border-border rounded-2xl p-4 text-center">
-            <div className="text-3xl mb-2">⭕❌</div>
+            <AnimatedLogo size="sm" className="mx-auto mb-2" />
             <div className="font-semibold">Крестики-Нолики Онлайн</div>
             <div className="text-xs text-muted-foreground mt-1">
-              Версия 2.0.0 · Next.js + Socket.io + Prisma
+              Версия 2.1.0 · Next.js + Socket.io + Prisma
             </div>
             <div className="text-xs text-muted-foreground mt-2">
               Деплой: Railway · GitHub: ZEPO228

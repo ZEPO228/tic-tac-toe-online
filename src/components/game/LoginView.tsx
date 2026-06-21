@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAppStore } from '@/lib/store'
 import { Loader2, LogIn, User, Lock } from 'lucide-react'
+import { AnimatedLogo } from './AnimatedLogo'
 
 export function LoginView() {
   const { setUser, setView, showToast } = useAppStore()
@@ -54,7 +55,7 @@ export function LoginView() {
           transition={{ delay: 0.1 }}
           className="text-center mb-8"
         >
-          <div className="text-6xl mb-3">⭕❌</div>
+          <AnimatedLogo size="lg" className="mx-auto mb-3" />
           <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent-foreground bg-clip-text text-transparent">
             Крестики-Нолики
           </h1>

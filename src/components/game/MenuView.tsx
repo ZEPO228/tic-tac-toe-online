@@ -13,8 +13,52 @@ interface MenuStats {
   activeGames: number
 }
 
-// Memoized menu item — only re-renders when props change
-// Uses GPU-accelerated transform/opacity animations (no reflow, no scroll lag)
+// Stagger container — children animate in sequence with custom origins
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.15,
+    },
+  },
+}
+
+// Each card flies in from a different direction + rotates slightly
+const cardVariants = [
+  // index 0 — from left
+  {
+    hidden: { opacity: 0, x: -120, rotate: -8, scale: 0.8 },
+    visible: { opacity: 1, x: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 260, damping: 22 } },
+  },
+  // index 1 — from right
+  {
+    hidden: { opacity: 0, x: 120, rotate: 8, scale: 0.8 },
+    visible: { opacity: 1, x: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 260, damping: 22 } },
+  },
+  // index 2 — from top
+  {
+    hidden: { opacity: 0, y: -100, rotate: 5, scale: 0.8 },
+    visible: { opacity: 1, y: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 260, damping: 22 } },
+  },
+  // index 3 — from bottom
+  {
+    hidden: { opacity: 0, y: 100, rotate: -5, scale: 0.8 },
+    visible: { opacity: 1, y: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 260, damping: 22 } },
+  },
+  // index 4 — from top-left
+  {
+    hidden: { opacity: 0, x: -80, y: -80, rotate: -10, scale: 0.7 },
+    visible: { opacity: 1, x: 0, y: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 260, damping: 22 } },
+  },
+  // index 5 — from bottom-right
+  {
+    hidden: { opacity: 0, x: 80, y: 80, rotate: 10, scale: 0.7 },
+    visible: { opacity: 1, x: 0, y: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 260, damping: 22 } },
+  },
+]
+
 const MenuItem = memo(function MenuItem({
   icon: Icon,
   label,
@@ -22,6 +66,7 @@ const MenuItem = memo(function MenuItem({
   primary,
   badge,
   onClick,
+  variantIndex,
 }: {
   icon: any
   label: string
@@ -29,14 +74,15 @@ const MenuItem = memo(function MenuItem({
   primary?: boolean
   badge?: number
   onClick: () => void
+  variantIndex: number
 }) {
+  const variant = cardVariants[variantIndex % cardVariants.length]
   return (
     <motion.button
+      variants={variant}
       onClick={onClick}
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
-      whileTap={{ scale: 0.98 }}
+      whileTap={{ scale: 0.97 }}
+      whileHover={{ scale: 1.02 }}
       className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-colors relative ${
         primary
           ? 'bg-primary/10 border-primary/30 hover:bg-primary/20'
@@ -115,9 +161,9 @@ export function MenuView() {
       <div className="max-w-md mx-auto p-4 pb-6 flex flex-col min-h-[100dvh]">
         {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
           className="flex items-center justify-between mb-6"
         >
           <div className="flex items-center gap-2">
@@ -135,11 +181,11 @@ export function MenuView() {
           </button>
         </motion.div>
 
-        {/* Player card */}
+        {/* Player card — flies in from top with rotation */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25, delay: 0.05 }}
+          initial={{ opacity: 0, y: -80, rotate: -5, scale: 0.85 }}
+          animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 200, damping: 20, delay: 0.1 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setView('profile')}
           className="bg-card/60 backdrop-blur-xl border border-border rounded-2xl p-4 mb-6 cursor-pointer hover:border-primary/50 transition-colors"
@@ -163,8 +209,13 @@ export function MenuView() {
           </div>
         </motion.div>
 
-        {/* Menu items */}
-        <div className="space-y-2.5 flex-1">
+        {/* Menu items — staggered fly-in from different directions */}
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="space-y-2.5 flex-1"
+        >
           {menuItems.map((item, idx) => (
             <MenuItem
               key={item.label}
@@ -174,16 +225,17 @@ export function MenuView() {
               primary={item.primary}
               badge={item.badge}
               onClick={() => setView(item.view)}
+              variantIndex={idx}
             />
           ))}
-        </div>
+        </motion.div>
 
-        {/* Stats footer */}
+        {/* Stats footer — fades in last */}
         {stats && (
           <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, delay: 0.2 }}
+            initial={{ opacity: 0, y: 40, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 22, delay: 0.6 }}
             className="grid grid-cols-3 gap-2 mt-6 text-center"
           >
             <div className="bg-card/30 rounded-xl p-2.5">

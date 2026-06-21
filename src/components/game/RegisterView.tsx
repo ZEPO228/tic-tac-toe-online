@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { AvatarGallery } from './AvatarGallery'
 import { useAppStore } from '@/lib/store'
 import { Loader2, UserPlus, User, Lock, ArrowLeft } from 'lucide-react'
+import { AnimatedLogo } from './AnimatedLogo'
 
 export function RegisterView() {
   const { setUser, setView, showToast } = useAppStore()
@@ -76,7 +77,7 @@ export function RegisterView() {
           transition={{ delay: 0.1 }}
           className="text-center mb-6"
         >
-          <div className="text-5xl mb-2">🎮</div>
+          <AnimatedLogo size="md" className="mx-auto mb-2" />
           <h1 className="text-2xl font-bold">Создать аккаунт</h1>
           <p className="text-muted-foreground text-sm mt-1">Это займёт меньше минуты</p>
         </motion.div>
