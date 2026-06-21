@@ -63,8 +63,8 @@ export function PrivateChatsView() {
       className="min-h-[100dvh] gradient-bg"
     >
       <div className="max-w-md mx-auto p-4">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6 sticky top-0 bg-background -mx-4 px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 z-10">
+        {/* Header — uses same gradient as background to blend seamlessly */}
+        <div className="flex items-center gap-3 mb-6 sticky top-0 gradient-bg -mx-4 px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 z-10">
           <button
             onClick={() => setView('menu')}
             className="p-2 rounded-lg hover:bg-card/50"

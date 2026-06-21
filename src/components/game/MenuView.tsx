@@ -1,5 +1,6 @@
 'use client'
 
+import { motion } from 'framer-motion'
 import { useAppStore } from '@/lib/store'
 import { getAvatar } from '@/lib/avatars'
 import { AvatarDisplay } from './AvatarDisplay'
@@ -12,7 +13,8 @@ interface MenuStats {
   activeGames: number
 }
 
-// Memoized menu item to prevent re-renders
+// Memoized menu item — only re-renders when props change
+// Uses GPU-accelerated transform/opacity animations (no reflow, no scroll lag)
 const MenuItem = memo(function MenuItem({
   icon: Icon,
   label,
@@ -29,8 +31,12 @@ const MenuItem = memo(function MenuItem({
   onClick: () => void
 }) {
   return (
-    <button
+    <motion.button
       onClick={onClick}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      whileTap={{ scale: 0.98 }}
       className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-colors relative ${
         primary
           ? 'bg-primary/10 border-primary/30 hover:bg-primary/20'
@@ -46,7 +52,7 @@ const MenuItem = memo(function MenuItem({
         <div className="font-semibold">{label}</div>
         <div className="text-xs text-muted-foreground truncate">{desc}</div>
       </div>
-      {badge !== undefined && (
+      {badge !== undefined && badge > 0 && (
         <div className="bg-destructive text-destructive-foreground rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center text-xs font-bold">
           {badge > 99 ? '99+' : badge}
         </div>
@@ -54,7 +60,7 @@ const MenuItem = memo(function MenuItem({
       {primary && (
         <span className="text-primary">→</span>
       )}
-    </button>
+    </motion.button>
   )
 })
 
@@ -99,12 +105,23 @@ export function MenuView() {
   ]
 
   return (
-    <div className="min-h-[100dvh] gradient-bg safe-top safe-bottom">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="min-h-[100dvh] gradient-bg safe-top safe-bottom"
+    >
       <div className="max-w-md mx-auto p-4 pb-6 flex flex-col min-h-[100dvh]">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+          className="flex items-center justify-between mb-6"
+        >
           <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+            <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
             <span className="text-sm text-muted-foreground">
               <span className="text-primary font-semibold">{onlineCount}</span> онлайн
             </span>
@@ -116,10 +133,14 @@ export function MenuView() {
           >
             <LogOut className="w-4 h-4" />
           </button>
-        </div>
+        </motion.div>
 
         {/* Player card */}
-        <div
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, delay: 0.05 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => setView('profile')}
           className="bg-card/60 backdrop-blur-xl border border-border rounded-2xl p-4 mb-6 cursor-pointer hover:border-primary/50 transition-colors"
         >
@@ -140,11 +161,11 @@ export function MenuView() {
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Menu items */}
         <div className="space-y-2.5 flex-1">
-          {menuItems.map((item) => (
+          {menuItems.map((item, idx) => (
             <MenuItem
               key={item.label}
               icon={item.icon}
@@ -159,7 +180,12 @@ export function MenuView() {
 
         {/* Stats footer */}
         {stats && (
-          <div className="grid grid-cols-3 gap-2 mt-6 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: 0.2 }}
+            className="grid grid-cols-3 gap-2 mt-6 text-center"
+          >
             <div className="bg-card/30 rounded-xl p-2.5">
               <div className="text-lg font-bold">{stats.totalUsers}</div>
               <div className="text-[10px] text-muted-foreground">игроков</div>
@@ -175,9 +201,9 @@ export function MenuView() {
               </div>
               <div className="text-[10px] text-muted-foreground">активных</div>
             </div>
-          </div>
+          </motion.div>
         )}
       </div>
-    </div>
+    </motion.div>
   )
 }

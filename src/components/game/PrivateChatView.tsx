@@ -197,7 +197,7 @@ export function PrivateChatView() {
       className="min-h-[100dvh] gradient-bg flex flex-col"
     >
       {/* Header — opaque background, covers safe area */}
-      <div className="flex items-center gap-3 p-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] border-b border-border bg-background z-20">
+      <div className="flex items-center gap-3 p-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] border-b border-border gradient-bg z-20">
         <button
           onClick={() => setView('private-chats')}
           className="p-2 rounded-lg hover:bg-card/50"
