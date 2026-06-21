@@ -50,10 +50,15 @@ export default function RootLayout({
           (function() {
             try {
               var t = localStorage.getItem('ttt_theme');
+              // Default to dark theme if not set
+              if (!t) t = 'dark';
               if (t === 'dark') document.documentElement.classList.add('dark');
               else if (t === 'light') document.documentElement.classList.add('light');
-              // 'system' or null: no class, CSS media query handles it
-            } catch(e) {}
+              // 'system': no class, CSS media query handles it
+            } catch(e) {
+              // Fallback: dark theme
+              document.documentElement.classList.add('dark');
+            }
           })();
         `}} />
       </head>

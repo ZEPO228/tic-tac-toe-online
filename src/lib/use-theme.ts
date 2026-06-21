@@ -7,10 +7,10 @@ export type ThemeMode = 'dark' | 'light' | 'system'
 const THEME_KEY = 'ttt_theme'
 
 function getStoredTheme(): ThemeMode {
-  if (typeof window === 'undefined') return 'system'
+  if (typeof window === 'undefined') return 'dark'
   const stored = localStorage.getItem(THEME_KEY)
   if (stored === 'dark' || stored === 'light' || stored === 'system') return stored
-  return 'system'
+  return 'dark' // Default to dark theme (looks better per user request)
 }
 
 function applyTheme(mode: ThemeMode) {
@@ -27,7 +27,7 @@ function applyTheme(mode: ThemeMode) {
 }
 
 export function useTheme() {
-  const [theme, setThemeState] = useState<ThemeMode>('system')
+  const [theme, setThemeState] = useState<ThemeMode>('dark')
 
   // Initialize from localStorage on mount
   useEffect(() => {

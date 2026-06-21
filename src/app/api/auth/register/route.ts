@@ -20,7 +20,8 @@ export async function POST(req: NextRequest) {
     if (password.length < 4) {
       return NextResponse.json({ error: 'Пароль минимум 4 символа' }, { status: 400 })
     }
-    if (avatar && !AVATARS.some(a => a.id === avatar)) {
+    // Validate avatar: must be a preset (avatar-1..24) or 'custom' (uploaded separately)
+    if (avatar && avatar !== 'custom' && !AVATARS.some(a => a.id === avatar)) {
       return NextResponse.json({ error: 'Неверная аватарка' }, { status: 400 })
     }
 
