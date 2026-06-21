@@ -1,10 +1,8 @@
-# Use Bun as the runtime (matches our dev environment)
 FROM oven/bun:1.1 AS base
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies for Prisma
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     openssl \
     ca-certificates \
@@ -26,13 +24,13 @@ COPY . .
 # Build Next.js
 RUN bun run build
 
-# Expose port
+# Make start script executable
+RUN chmod +x start.sh
+
 EXPOSE 3000
 
-# Set environment
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-# Start the server
-CMD ["bun", "server.ts"]
+CMD ["bash", "start.sh"]
