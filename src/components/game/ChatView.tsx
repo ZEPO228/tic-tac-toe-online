@@ -72,10 +72,10 @@ export function ChatView() {
       initial={{ opacity: 0, x: 30 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -30 }}
-      className="min-h-[100dvh] gradient-bg flex flex-col safe-top safe-bottom"
+      className="min-h-[100dvh] gradient-bg flex flex-col"
     >
       {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b border-border sticky top-0 bg-background/80 backdrop-blur-md z-10">
+      <div className="flex items-center gap-3 p-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] border-b border-border bg-background z-10">
         <button
           onClick={() => setView('menu')}
           className="p-2 rounded-lg hover:bg-card/50"

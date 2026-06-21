@@ -47,8 +47,13 @@ export function ProfileView() {
   async function handleSaveAvatar() {
     setSaving(true)
     try {
-      // If custom avatar was selected and there's new data to upload
-      if (selectedAvatar === 'custom' && customAvatarPreview && customAvatarPreview !== user?.customAvatar) {
+      const currentAvatar = user?.avatar || ''
+      const currentCustom = user?.customAvatar || null
+      const hasAvatarChanged = selectedAvatar !== currentAvatar
+      const hasCustomChanged = customAvatarPreview !== currentCustom
+
+      // Case 1: Custom avatar selected with new image to upload
+      if (selectedAvatar === 'custom' && customAvatarPreview && hasCustomChanged) {
         const uploadRes = await fetch('/api/avatar/upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -61,10 +66,12 @@ export function ProfileView() {
           setEditingAvatar(false)
           showToast('success', 'Аватарка обновлена!')
         } else {
-          showToast('error', 'Не удалось загрузить фото')
+          const errData = await uploadRes.json().catch(() => ({}))
+          showToast('error', errData.error || 'Не удалось загрузить фото')
         }
-      } else if (selectedAvatar !== user?.avatar) {
-        // Preset avatar changed
+      }
+      // Case 2: Preset avatar selected (or switching from custom to preset)
+      else if (hasAvatarChanged) {
         const res = await fetch('/api/profile', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -77,12 +84,21 @@ export function ProfileView() {
           setCustomAvatarPreview(d.user.customAvatar || null)
           setEditingAvatar(false)
           showToast('success', 'Аватарка обновлена!')
+        } else {
+          showToast('error', d.error || 'Не удалось сохранить')
         }
-      } else {
-        // No changes
+      }
+      // Case 3: Custom avatar already saved (no new upload), just close editor
+      else if (selectedAvatar === 'custom' && currentCustom && !hasCustomChanged) {
         setEditingAvatar(false)
       }
+      // Case 4: No changes at all
+      else {
+        setEditingAvatar(false)
+        showToast('info', 'Нет изменений')
+      }
     } catch (e) {
+      console.error('Save avatar error:', e)
       showToast('error', 'Не удалось сохранить')
     } finally {
       setSaving(false)
@@ -165,7 +181,7 @@ export function ProfileView() {
             <div className="flex gap-2 mt-4">
               <Button
                 onClick={handleSaveAvatar}
-                disabled={saving || (selectedAvatar === user.avatar && customAvatarPreview === user.customAvatar)}
+                disabled={saving}
                 className="flex-1"
               >
                 {saving ? (

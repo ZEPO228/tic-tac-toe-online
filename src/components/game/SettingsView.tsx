@@ -111,7 +111,7 @@ export function SettingsView() {
             <div className="text-3xl mb-2">⭕❌</div>
             <div className="font-semibold">Крестики-Нолики Онлайн</div>
             <div className="text-xs text-muted-foreground mt-1">
-              Версия 1.0.0 · Next.js + Socket.io + Prisma
+              Версия 2.0.0 · Next.js + Socket.io + Prisma
             </div>
             <div className="text-xs text-muted-foreground mt-2">
               Деплой: Railway · GitHub: ZEPO228

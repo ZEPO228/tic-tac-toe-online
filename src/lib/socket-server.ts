@@ -48,8 +48,30 @@ interface ActiveGame {
 const onlinePlayers = new Map<string, OnlinePlayer>() // userId -> OnlinePlayer
 const queue: QueuedPlayer[] = []
 const activeGames = new Map<string, ActiveGame>() // gameId -> ActiveGame
-const recentMessages: Array<{ id: string; userId: string | null; username: string; avatar: string; text: string; createdAt: number }> = []
+let recentMessages: Array<{ id: string; userId: string | null; username: string; avatar: string; text: string; createdAt: number }> = []
 const MAX_MESSAGES = 50
+
+// Load recent messages from DB on server start (so chat history persists across deploys/restarts)
+;(async () => {
+  try {
+    const dbMessages = await db.message.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: MAX_MESSAGES,
+    })
+    // Reverse to chronological order (oldest first)
+    recentMessages = dbMessages.reverse().map(m => ({
+      id: m.id,
+      userId: m.userId,
+      username: m.username,
+      avatar: m.avatar,
+      text: m.text,
+      createdAt: m.createdAt.getTime(),
+    }))
+    console.log(`[socket-server] Loaded ${recentMessages.length} messages from DB`)
+  } catch (e) {
+    console.error('[socket-server] Failed to load messages from DB:', e)
+  }
+})()
 
 function verifyToken(token: string): AuthPayload | null {
   try {
