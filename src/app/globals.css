@@ -256,6 +256,27 @@ html, body {
   touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* Improve scroll on Android Chrome */
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Android Chrome specific: ensure smooth scrolling */
+@supports (-webkit-touch-callout: none) {
+  /* iOS only — not used here but kept for reference */
+}
+
+/* Android Chrome: use overscroll-contain on scrollable containers */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Main scrollable containers — momentum scrolling */
+.max-w-md, .flex-1, .overflow-y-auto, .custom-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  /* Android Chrome: transform creates a new stacking context for smoother scroll */
+  transform: translateZ(0);
 }
 
 /* Improve touch target accuracy on buttons */
@@ -273,11 +294,11 @@ button, a, [role="button"] {
 
 /* Larger touch targets on mobile (44px minimum per Apple HIG) */
 @media (max-width: 768px) {
-  button, [role="button"], a {
+  button:not([data-slot="switch"]):not([data-slot="switch-thumb"]), [role="button"]:not([data-slot="switch"]) {
     min-height: 36px;
   }
   /* Keep small icon buttons (24px) tappable but with larger hit area */
-  button[aria-label] {
+  button[aria-label]:not([data-slot="switch"]) {
     min-height: 40px;
     min-width: 40px;
   }

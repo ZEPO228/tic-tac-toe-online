@@ -19,43 +19,44 @@ const containerVariants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.15,
+      staggerChildren: 0.18,
+      delayChildren: 0.3,
     },
   },
 }
 
 // Each card flies in from a different direction + rotates slightly
+// Slower spring for cinematic effect (lower stiffness = slower)
 const cardVariants = [
   // index 0 — from left
   {
     hidden: { opacity: 0, x: -120, rotate: -8, scale: 0.8 },
-    visible: { opacity: 1, x: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 260, damping: 22 } },
+    visible: { opacity: 1, x: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 140, damping: 18, mass: 1.2 } },
   },
   // index 1 — from right
   {
     hidden: { opacity: 0, x: 120, rotate: 8, scale: 0.8 },
-    visible: { opacity: 1, x: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 260, damping: 22 } },
+    visible: { opacity: 1, x: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 140, damping: 18, mass: 1.2 } },
   },
   // index 2 — from top
   {
     hidden: { opacity: 0, y: -100, rotate: 5, scale: 0.8 },
-    visible: { opacity: 1, y: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 260, damping: 22 } },
+    visible: { opacity: 1, y: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 140, damping: 18, mass: 1.2 } },
   },
   // index 3 — from bottom
   {
     hidden: { opacity: 0, y: 100, rotate: -5, scale: 0.8 },
-    visible: { opacity: 1, y: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 260, damping: 22 } },
+    visible: { opacity: 1, y: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 140, damping: 18, mass: 1.2 } },
   },
   // index 4 — from top-left
   {
     hidden: { opacity: 0, x: -80, y: -80, rotate: -10, scale: 0.7 },
-    visible: { opacity: 1, x: 0, y: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 260, damping: 22 } },
+    visible: { opacity: 1, x: 0, y: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 140, damping: 18, mass: 1.2 } },
   },
   // index 5 — from bottom-right
   {
     hidden: { opacity: 0, x: 80, y: 80, rotate: 10, scale: 0.7 },
-    visible: { opacity: 1, x: 0, y: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 260, damping: 22 } },
+    visible: { opacity: 1, x: 0, y: 0, rotate: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 140, damping: 18, mass: 1.2 } },
   },
 ]
 
@@ -185,7 +186,7 @@ export function MenuView() {
         <motion.div
           initial={{ opacity: 0, y: -80, rotate: -5, scale: 0.85 }}
           animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 20, delay: 0.1 }}
+          transition={{ type: 'spring', stiffness: 120, damping: 18, mass: 1.2, delay: 0.2 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setView('profile')}
           className="bg-card/60 backdrop-blur-xl border border-border rounded-2xl p-4 mb-6 cursor-pointer hover:border-primary/50 transition-colors"
@@ -235,7 +236,7 @@ export function MenuView() {
           <motion.div
             initial={{ opacity: 0, y: 40, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 22, delay: 0.6 }}
+            transition={{ type: 'spring', stiffness: 120, damping: 18, mass: 1.2, delay: 1.4 }}
             className="grid grid-cols-3 gap-2 mt-6 text-center"
           >
             <div className="bg-card/30 rounded-xl p-2.5">

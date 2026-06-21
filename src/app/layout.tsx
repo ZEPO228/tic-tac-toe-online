@@ -14,14 +14,26 @@ export const metadata: Metadata = {
   description: "Онлайн игра крестики-нолики с multiplayer, чатом и ботами",
   keywords: ["крестики-нолики", "онлайн игра", "мультиплеер", "tic-tac-toe"],
   authors: [{ name: "DDR_ZIK" }],
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Крестики-Нолики",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  themeColor: "#0a0a0f",
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f4f4f6" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0f" },
+  ],
   viewportFit: "cover",
 };
 

@@ -1,0 +1,20 @@
+{
+  "name": "Крестики-Нолики Онлайн",
+  "short_name": "Крестики-Нолики",
+  "description": "Онлайн игра крестики-нолики с multiplayer, чатом и ботами",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0f",
+  "theme_color": "#0a0a0f",
+  "lang": "ru",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
