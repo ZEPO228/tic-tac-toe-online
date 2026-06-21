@@ -9,12 +9,24 @@ import { parse } from 'url'
 import next from 'next'
 import { Server as IOServer } from 'socket.io'
 import { setupSocketIO } from './src/lib/socket-server'
+import { execSync } from 'child_process'
 
 const dev = process.env.NODE_ENV !== 'production'
 const port = parseInt(process.env.PORT || '3000', 10)
 const hostname = '0.0.0.0'
 
 async function main() {
+  // Push Prisma schema to database (creates tables if they don't exist)
+  if (!dev && process.env.DATABASE_URL) {
+    try {
+      console.log('[server] Pushing Prisma schema to database...')
+      execSync('bun run db:push --accept-data-loss', { stdio: 'inherit', env: process.env })
+      console.log('[server] Database schema pushed successfully')
+    } catch (e) {
+      console.error('[server] Failed to push schema (continuing anyway):', e)
+    }
+  }
+
   const app = next({ dev, hostname, port })
   const handle = app.getRequestHandler()
 

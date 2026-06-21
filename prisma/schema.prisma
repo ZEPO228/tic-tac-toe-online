@@ -1,12 +1,12 @@
 // Prisma schema for online tic-tac-toe game
-// Uses SQLite locally, PostgreSQL on Railway (provider is switched via env var)
+// Uses PostgreSQL on Railway (production) and SQLite locally
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
