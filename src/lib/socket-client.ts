@@ -21,15 +21,22 @@ export function getSocket(): Socket | null {
 
   socket = ioClient(socketUrl, {
     auth: { token },
-    transports: ['websocket', 'polling'],
+    // Use polling first for Railway compatibility, upgrade to websocket if available
+    transports: ['polling', 'websocket'],
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
+    upgrade: true,
+    rememberUpgrade: true,
   })
 
   socket.on('connect_error', (err) => {
     console.warn('[socket] connect_error:', err.message)
+  })
+
+  socket.on('connect', () => {
+    console.log('[socket] connected:', socket?.id)
   })
 
   return socket
