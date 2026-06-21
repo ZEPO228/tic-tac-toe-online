@@ -1,12 +1,10 @@
 'use client'
 
-import { motion } from 'framer-motion'
-import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/lib/store'
 import { getAvatar } from '@/lib/avatars'
 import { AvatarDisplay } from './AvatarDisplay'
 import { Gamepad2, Users, MessageCircle, User as UserIcon, Settings, LogOut, Trophy, Activity, Mail } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, memo } from 'react'
 
 interface MenuStats {
   totalUsers: number
@@ -14,8 +12,54 @@ interface MenuStats {
   activeGames: number
 }
 
+// Memoized menu item to prevent re-renders
+const MenuItem = memo(function MenuItem({
+  icon: Icon,
+  label,
+  desc,
+  primary,
+  badge,
+  onClick,
+}: {
+  icon: any
+  label: string
+  desc: string
+  primary?: boolean
+  badge?: number
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-colors relative ${
+        primary
+          ? 'bg-primary/10 border-primary/30 hover:bg-primary/20'
+          : 'bg-card/40 border-border hover:border-primary/30 hover:bg-card/60'
+      }`}
+    >
+      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
+        primary ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground'
+      }`}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <div className="flex-1 text-left min-w-0">
+        <div className="font-semibold">{label}</div>
+        <div className="text-xs text-muted-foreground truncate">{desc}</div>
+      </div>
+      {badge !== undefined && (
+        <div className="bg-destructive text-destructive-foreground rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center text-xs font-bold">
+          {badge > 99 ? '99+' : badge}
+        </div>
+      )}
+      {primary && (
+        <span className="text-primary">→</span>
+      )}
+    </button>
+  )
+})
+
 export function MenuView() {
-  const { user, setView, setUser, showToast, onlineCount, contacts } = useAppStore()
+  const { user, setView, setUser, showToast, onlineCount } = useAppStore()
   const [stats, setStats] = useState<MenuStats | null>(null)
   const [unreadCount, setUnreadCount] = useState(0)
 
@@ -25,7 +69,6 @@ export function MenuView() {
       .then(setStats)
       .catch(() => {})
 
-    // Fetch contacts to get unread count
     fetch('/api/direct-messages/contacts')
       .then(r => r.json())
       .then(d => {
@@ -56,21 +99,12 @@ export function MenuView() {
   ]
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className="min-h-[100dvh] gradient-bg safe-top safe-bottom"
-    >
+    <div className="min-h-[100dvh] gradient-bg safe-top safe-bottom">
       <div className="max-w-md mx-auto p-4 pb-6 flex flex-col min-h-[100dvh]">
         {/* Header */}
-        <motion.div
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="flex items-center justify-between mb-6"
-        >
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
+            <div className="w-2.5 h-2.5 rounded-full bg-primary" />
             <span className="text-sm text-muted-foreground">
               <span className="text-primary font-semibold">{onlineCount}</span> онлайн
             </span>
@@ -82,14 +116,10 @@ export function MenuView() {
           >
             <LogOut className="w-4 h-4" />
           </button>
-        </motion.div>
+        </div>
 
         {/* Player card */}
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          whileTap={{ scale: 0.98 }}
+        <div
           onClick={() => setView('profile')}
           className="bg-card/60 backdrop-blur-xl border border-border rounded-2xl p-4 mb-6 cursor-pointer hover:border-primary/50 transition-colors"
         >
@@ -110,62 +140,26 @@ export function MenuView() {
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Menu items */}
         <div className="space-y-2.5 flex-1">
-          {menuItems.map((item, idx) => (
-            <motion.button
+          {menuItems.map((item) => (
+            <MenuItem
               key={item.label}
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.15 + idx * 0.05 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                console.log('[MenuView] clicked', item.label, '-> view', item.view)
-                setView(item.view)
-              }}
-              className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all relative ${
-                item.primary
-                  ? 'bg-primary/10 border-primary/30 hover:bg-primary/20'
-                  : 'bg-card/40 border-border hover:border-primary/30 hover:bg-card/60'
-              }`}
-            >
-              <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
-                item.primary ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground'
-              }`}>
-                <item.icon className="w-5 h-5" />
-              </div>
-              <div className="flex-1 text-left min-w-0">
-                <div className="font-semibold">{item.label}</div>
-                <div className="text-xs text-muted-foreground truncate">{item.desc}</div>
-              </div>
-              {item.badge && (
-                <div className="bg-destructive text-destructive-foreground rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center text-xs font-bold">
-                  {item.badge > 99 ? '99+' : item.badge}
-                </div>
-              )}
-              {item.primary && (
-                <motion.div
-                  animate={{ x: [0, 4, 0] }}
-                  transition={{ repeat: Infinity, duration: 1.5 }}
-                  className="text-primary"
-                >
-                  →
-                </motion.div>
-              )}
-            </motion.button>
+              icon={item.icon}
+              label={item.label}
+              desc={item.desc}
+              primary={item.primary}
+              badge={item.badge}
+              onClick={() => setView(item.view)}
+            />
           ))}
         </div>
 
         {/* Stats footer */}
         {stats && (
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="grid grid-cols-3 gap-2 mt-6 text-center"
-          >
+          <div className="grid grid-cols-3 gap-2 mt-6 text-center">
             <div className="bg-card/30 rounded-xl p-2.5">
               <div className="text-lg font-bold">{stats.totalUsers}</div>
               <div className="text-[10px] text-muted-foreground">игроков</div>
@@ -181,9 +175,9 @@ export function MenuView() {
               </div>
               <div className="text-[10px] text-muted-foreground">активных</div>
             </div>
-          </motion.div>
+          </div>
         )}
       </div>
-    </motion.div>
+    </div>
   )
 }

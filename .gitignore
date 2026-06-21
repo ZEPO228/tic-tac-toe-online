@@ -49,5 +49,5 @@ mini-services/
 skills/
 db/
 download/
-upload/
+/upload/
 *.tar.gz

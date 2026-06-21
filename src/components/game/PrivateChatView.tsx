@@ -4,9 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore, DirectMessage } from '@/lib/store'
 import { getSocket } from '@/lib/socket-client'
 import { AvatarDisplay } from './AvatarDisplay'
-import { ArrowLeft, Send } from 'lucide-react'
+import { ArrowLeft, Send, Trash2, MoreVertical } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 
 interface OtherUser {
   id: string
@@ -16,12 +17,15 @@ interface OtherUser {
 }
 
 export function PrivateChatView() {
-  const { selectedPlayerId, setView, user, onlineUserIds, showToast } = useAppStore()
+  const { selectedPlayerId, setView, user, onlineUserIds, showToast, setSelectedPlayerId } = useAppStore()
   const [otherUser, setOtherUser] = useState<OtherUser | null>(null)
   const [messages, setMessages] = useState<DirectMessage[]>([])
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [showMenu, setShowMenu] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const socketRef = useRef(getSocket())
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
@@ -137,6 +141,36 @@ export function PrivateChatView() {
     setTimeout(() => setSending(false), 200)
   }
 
+  async function handleDeleteChat() {
+    if (!selectedPlayerId) return
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/direct-messages/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otherUserId: selectedPlayerId }),
+      })
+      if (res.ok) {
+        showToast('success', 'Чат удалён')
+        setConfirmDelete(false)
+        setView('private-chats')
+      } else {
+        const data = await res.json().catch(() => ({}))
+        showToast('error', data.error || 'Не удалось удалить чат')
+      }
+    } catch (e) {
+      showToast('error', 'Сетевая ошибка')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  function openUserProfile() {
+    if (!otherUser) return
+    // selectedPlayerId is already set to otherUser.id
+    setView('player-profile')
+  }
+
   if (loading) {
     return (
       <div className="min-h-[100dvh] gradient-bg flex items-center justify-center">
@@ -163,7 +197,7 @@ export function PrivateChatView() {
       className="min-h-[100dvh] gradient-bg flex flex-col"
     >
       {/* Header — opaque background, covers safe area */}
-      <div className="flex items-center gap-3 p-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] border-b border-border bg-background z-10">
+      <div className="flex items-center gap-3 p-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] border-b border-border bg-background z-20">
         <button
           onClick={() => setView('private-chats')}
           className="p-2 rounded-lg hover:bg-card/50"
@@ -171,7 +205,11 @@ export function PrivateChatView() {
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div className="relative shrink-0">
+        <button
+          onClick={openUserProfile}
+          className="relative shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+          aria-label="Открыть профиль"
+        >
           <AvatarDisplay
             avatar={otherUser.avatar}
             customAvatar={otherUser.customAvatar}
@@ -182,8 +220,11 @@ export function PrivateChatView() {
               isOnline ? 'bg-primary' : 'bg-muted-foreground/40'
             }`}
           />
-        </div>
-        <div className="flex-1 min-w-0">
+        </button>
+        <button
+          onClick={openUserProfile}
+          className="flex-1 min-w-0 text-left cursor-pointer hover:opacity-80 transition-opacity"
+        >
           <h1 className="text-base font-bold truncate">{otherUser.username}</h1>
           <p className="text-xs text-muted-foreground">
             {isOnline ? (
@@ -192,8 +233,103 @@ export function PrivateChatView() {
               'офлайн'
             )}
           </p>
-        </div>
+        </button>
+        <button
+          onClick={() => setShowMenu(!showMenu)}
+          className="p-2 rounded-lg hover:bg-card/50"
+          aria-label="Меню"
+        >
+          <MoreVertical className="w-5 h-5" />
+        </button>
       </div>
+
+      {/* Dropdown menu */}
+      <AnimatePresence>
+        {showMenu && (
+          <>
+            <div
+              className="fixed inset-0 z-30"
+              onClick={() => setShowMenu(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+              transition={{ duration: 0.15 }}
+              className="absolute right-4 top-[calc(env(safe-area-inset-top,0px)+3.5rem)] z-40 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden min-w-[180px]"
+            >
+              <button
+                onClick={() => {
+                  setShowMenu(false)
+                  openUserProfile()
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-secondary/50 transition-colors text-left"
+              >
+                <AvatarDisplay avatar={otherUser.avatar} customAvatar={otherUser.customAvatar} size={20} />
+                <span>Профиль игрока</span>
+              </button>
+              <div className="border-t border-border" />
+              <button
+                onClick={() => {
+                  setShowMenu(false)
+                  setConfirmDelete(true)
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-destructive/10 text-destructive transition-colors text-left"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Удалить чат</span>
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Delete confirmation modal */}
+      <AnimatePresence>
+        {confirmDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md"
+            onClick={() => !deleting && setConfirmDelete(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-card border border-border rounded-3xl p-6 max-w-xs w-full text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-5xl mb-3">🗑️</div>
+              <h2 className="text-lg font-bold mb-2">Удалить чат?</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Все сообщения с {otherUser.username} будут удалены у вас и у собеседника. Это действие нельзя отменить.
+              </p>
+              <div className="space-y-2">
+                <Button
+                  onClick={handleDeleteChat}
+                  disabled={deleting}
+                  variant="destructive"
+                  className="w-full h-12"
+                  size="lg"
+                >
+                  {deleting ? 'Удаление...' : 'Удалить чат'}
+                </Button>
+                <Button
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={deleting}
+                  variant="ghost"
+                  className="w-full h-12"
+                  size="lg"
+                >
+                  Отмена
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Messages */}
       <div

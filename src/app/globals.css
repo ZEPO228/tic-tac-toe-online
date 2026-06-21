@@ -173,8 +173,7 @@
 
 .gradient-bg {
   background: linear-gradient(135deg, oklch(0.08 0.05 270), oklch(0.10 0.03 295), oklch(0.08 0.05 270));
-  background-size: 200% 200%;
-  animation: gradient-shift 8s ease infinite;
+  background-attachment: fixed;
 }
 
 /* Disable pull-to-refresh on mobile */
