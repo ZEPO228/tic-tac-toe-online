@@ -12,8 +12,6 @@ export function getSocket(): Socket | null {
   const token = getCookie('ttt_token')
   if (!token) return null
 
-  // Production (Railway): same-origin connection via custom server (server.ts)
-  // Local dev: connect directly to mini-service on port 3001
   const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   const socketUrl = isLocalDev
     ? `http://${window.location.hostname}:3001`
@@ -21,14 +19,13 @@ export function getSocket(): Socket | null {
 
   socket = ioClient(socketUrl, {
     auth: { token },
-    // Use polling first for Railway compatibility, upgrade to websocket if available
-    transports: ['polling', 'websocket'],
+    // Polling only - Railway's proxy has issues with websocket upgrades
+    transports: ['polling'],
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
-    upgrade: true,
-    rememberUpgrade: true,
+    upgrade: false,
   })
 
   socket.on('connect_error', (err) => {
@@ -37,6 +34,10 @@ export function getSocket(): Socket | null {
 
   socket.on('connect', () => {
     console.log('[socket] connected:', socket?.id)
+  })
+
+  socket.on('disconnect', (reason) => {
+    console.warn('[socket] disconnected:', reason)
   })
 
   return socket
