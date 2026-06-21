@@ -1,2 +1,53 @@
-skills/
+# Dependencies
 node_modules/
+bun.lockb
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Environment
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Database
+*.db
+*.db-journal
+db/*.db
+prisma/*.db
+prisma/migrations/dev/
+
+# Logs
+*.log
+dev.log
+server.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.pid
+*.seed
+.coverage
+.zscripts/
+examples/
+dev-server.js
+Caddyfile
+mini-services/
+skills/
+db/
+download/
+upload/
+*.tar.gz

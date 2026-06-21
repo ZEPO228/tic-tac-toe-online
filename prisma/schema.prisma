@@ -1,0 +1,57 @@
+// Prisma schema for online tic-tac-toe game
+// Uses SQLite locally, PostgreSQL on Railway (provider is switched via env var)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  password     String
+  avatar       String   @default("avatar-1")
+  gamesPlayed  Int      @default(0)
+  gamesWon     Int      @default(0)
+  gamesLost    Int      @default(0)
+  gamesDraw    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  gamesAsP1    Game[]   @relation("GamePlayer1")
+  gamesAsP2    Game[]   @relation("GamePlayer2")
+  messages     Message[]
+}
+
+model Game {
+  id            String   @id @default(cuid())
+  player1Id     String
+  player2Id     String?
+  player1Symbol String   @default("X")
+  player2Symbol String   @default("O")
+  isVsBot       Boolean  @default(false)
+  status        String   @default("active") // active | finished
+  winner        String?  // player1 | player2 | draw
+  board         String   @default("[\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\"]")
+  currentTurn   String   @default("X")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  player1       User     @relation("GamePlayer1", fields: [player1Id], references: [id])
+  player2       User?    @relation("GamePlayer2", fields: [player2Id], references: [id])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  userId    String?
+  username  String
+  avatar    String
+  text      String
+  createdAt DateTime @default(now())
+
+  user      User?    @relation(fields: [userId], references: [id])
+}
