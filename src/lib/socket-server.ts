@@ -111,6 +111,7 @@ function broadcastQueueCount(io: Server) {
 }
 
 function makeBotMove(game: ActiveGame) {
+  console.log('[server] makeBotMove called', { gameId: game.id, status: game.status, isVsBot: game.isVsBot, currentTurn: game.currentTurn })
   if (game.status !== 'active' || !game.isVsBot) return
   const botSymbol: Cell = game.player2!.symbol
   if (game.currentTurn !== botSymbol) return
@@ -392,8 +393,9 @@ export function setupSocketIO(io: Server) {
 
     // === Game moves ===
     socket.on('game_move', ({ gameId, index }: { gameId: string; index: number }) => {
+      console.log('[server] game_move received:', { gameId, index, userId })
       const game = activeGames.get(gameId)
-      if (!game || game.status !== 'active') return
+      if (!game || game.status !== 'active') { console.log('[server] game not found or not active'); return }
       if (index < 0 || index > 8 || game.board[index] !== '') return
 
       const playerSymbol: Cell = game.player1.userId === userId ? game.player1.symbol : game.player2?.symbol
