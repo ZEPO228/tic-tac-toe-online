@@ -117,16 +117,14 @@ export function PrivateChatView() {
       if (res.ok) {
         const data = await res.json()
         if (data.message) {
-          // Add to local messages immediately
+          // Add to local messages immediately (with dedup)
           setMessages(prev => {
             if (prev.some(m => m.id === data.message.id)) return prev
             return [...prev, data.message]
           })
-          // Also notify via socket for real-time (if connected)
-          const socket = socketRef.current
-          if (socket && socket.connected) {
-            socket.emit('dm_send', { recipientId: selectedPlayerId, text: trimmed })
-          }
+          // Note: we do NOT emit dm_send via socket here — the HTTP API already
+          // saved the message. The socket 'dm_message' listener will handle
+          // real-time updates if the other user is online.
         }
       } else {
         const errData = await res.json().catch(() => ({}))
