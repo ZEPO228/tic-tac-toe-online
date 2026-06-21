@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '@/lib/store'
 import { getSocket } from '@/lib/socket-client'
-import { getAvatar } from '@/lib/avatars'
+import { AvatarDisplay } from './AvatarDisplay'
 import { ArrowLeft, Send } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
@@ -107,7 +107,6 @@ export function ChatView() {
         ) : (
           <AnimatePresence initial={false}>
             {messages.map((msg) => {
-              const avatar = getAvatar(msg.avatar)
               const isMe = msg.userId === user?.id
               return (
                 <motion.div
@@ -116,12 +115,10 @@ export function ChatView() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   className={`flex gap-2 ${isMe ? 'flex-row-reverse' : ''}`}
                 >
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center text-xl shrink-0"
-                    style={{ backgroundColor: avatar.color + '40' }}
-                  >
-                    {avatar.emoji}
-                  </div>
+                  <AvatarDisplay
+                    avatar={msg.avatar}
+                    size={36}
+                  />
                   <div className={`flex flex-col max-w-[75%] ${isMe ? 'items-end' : 'items-start'}`}>
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-xs font-semibold ${isMe ? 'text-primary' : ''}`}>

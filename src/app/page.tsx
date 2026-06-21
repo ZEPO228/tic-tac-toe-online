@@ -12,10 +12,13 @@ import { ProfileView } from '@/components/game/ProfileView'
 import { SettingsView } from '@/components/game/SettingsView'
 import { PlayersView } from '@/components/game/PlayersView'
 import { ChatView } from '@/components/game/ChatView'
+import { PlayerProfileView } from '@/components/game/PlayerProfileView'
+import { PrivateChatsView } from '@/components/game/PrivateChatsView'
+import { PrivateChatView } from '@/components/game/PrivateChatView'
 import { Loader2 } from 'lucide-react'
 
 export default function Home() {
-  const { user, setUser, view, setView, setOnlineCount } = useAppStore()
+  const { user, setUser, view, setView, setOnlineCount, setOnlineUserIds } = useAppStore()
   const [loading, setLoading] = useState(true)
   const [socketReady, setSocketReady] = useState(false)
 
@@ -58,12 +61,18 @@ export default function Home() {
     const onConnectError = (err: Error) => {
       console.warn('[socket] connect error:', err.message)
     }
-    const onOnlineCount = ({ count }: { count: number }) => setOnlineCount(count)
+    const onOnlineCount = ({ count }: { count: number }) => {
+      setOnlineCount(count)
+    }
+    const onOnlineUsers = ({ userIds }: { userIds: string[] }) => {
+      setOnlineUserIds(new Set(userIds))
+    }
 
     socket.on('connect', onConnect)
     socket.on('disconnect', onDisconnect)
     socket.on('connect_error', onConnectError)
     socket.on('online_count', onOnlineCount)
+    socket.on('online_users', onOnlineUsers)
 
     if (socket.connected) setSocketReady(true)
 
@@ -72,6 +81,7 @@ export default function Home() {
       socket.off('disconnect', onDisconnect)
       socket.off('connect_error', onConnectError)
       socket.off('online_count', onOnlineCount)
+      socket.off('online_users', onOnlineUsers)
     }
   }, [user])
 
@@ -103,13 +113,16 @@ export default function Home() {
     case 'settings': currentView = <SettingsView />; break
     case 'players': currentView = <PlayersView />; break
     case 'chat': currentView = <ChatView />; break
+    case 'player-profile': currentView = <PlayerProfileView />; break
+    case 'private-chats': currentView = <PrivateChatsView />; break
+    case 'private-chat': currentView = <PrivateChatView />; break
     default: currentView = <MenuView />
   }
 
   return (
     <>
       {currentView}
-      {user && !socketReady && view !== 'matchmaking' && view !== 'game' && (
+      {user && !socketReady && view !== 'matchmaking' && view !== 'game' && view !== 'private-chat' && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-card border border-border rounded-full px-4 py-2 text-xs flex items-center gap-2 z-50 shadow-lg">
           <Loader2 className="w-3 h-3 animate-spin text-yellow-500" />
           <span>Подключение к серверу...</span>

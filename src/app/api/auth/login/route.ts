@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
         id: user.id,
         username: user.username,
         avatar: user.avatar,
+        customAvatar: user.customAvatar,
         gamesPlayed: user.gamesPlayed,
         gamesWon: user.gamesWon,
         gamesLost: user.gamesLost,

@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '@/lib/store'
 import { getSocket } from '@/lib/socket-client'
-import { getAvatar } from '@/lib/avatars'
+import { AvatarDisplay } from './AvatarDisplay'
 import { useEffect, useState, useRef } from 'react'
 import { Bot, ArrowLeft, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -99,8 +99,7 @@ export function GameView() {
   const mySymbol = me.symbol
   const opponentSymbol = opponent.symbol
 
-  const meAvatar = getAvatar(me.avatar)
-  const oppAvatar = getAvatar(opponent.avatar)
+
 
   const isMyTurn = gameState.currentTurn === mySymbol && gameState.status === 'active'
 
@@ -218,12 +217,10 @@ export function GameView() {
               : 'bg-card/60 border-primary/40 shadow-lg shadow-primary/10'
           }`}
         >
-          <div
-            className="w-14 h-14 rounded-xl flex items-center justify-center text-3xl shrink-0"
-            style={{ backgroundColor: oppAvatar.color + '40' }}
-          >
-            {oppAvatar.emoji}
-          </div>
+          <AvatarDisplay
+            avatar={opponent.avatar}
+            size={56}
+          />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-semibold truncate">{opponent.username}</span>
@@ -302,12 +299,10 @@ export function GameView() {
               : 'bg-card/40 border-border opacity-60'
           }`}
         >
-          <div
-            className="w-14 h-14 rounded-xl flex items-center justify-center text-3xl shrink-0"
-            style={{ backgroundColor: meAvatar.color + '40' }}
-          >
-            {meAvatar.emoji}
-          </div>
+          <AvatarDisplay
+            avatar={me.avatar}
+            size={56}
+          />
           <div className="flex-1 min-w-0">
             <div className="font-semibold truncate">{me.username} (ты)</div>
             <div className="text-xs text-muted-foreground">

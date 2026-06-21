@@ -3,16 +3,17 @@
 import { motion } from 'framer-motion'
 import { useAppStore } from '@/lib/store'
 import { getAvatar, AVATARS } from '@/lib/avatars'
+import { AvatarDisplay } from './AvatarDisplay'
 import { Button } from '@/components/ui/button'
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Trophy, Target, TrendingUp, Calendar, Save } from 'lucide-react'
+import { ArrowLeft, Trophy, Target, TrendingUp, Calendar, Save, Loader2 } from 'lucide-react'
 import { AvatarGallery } from './AvatarGallery'
-import { toast } from 'sonner'
 
 interface ProfileData {
   id: string
   username: string
   avatar: string
+  customAvatar?: string | null
   gamesPlayed: number
   gamesWon: number
   gamesLost: number
@@ -26,6 +27,7 @@ export function ProfileView() {
   const [data, setData] = useState<ProfileData | null>(null)
   const [editingAvatar, setEditingAvatar] = useState(false)
   const [selectedAvatar, setSelectedAvatar] = useState(user?.avatar || 'avatar-1')
+  const [customAvatarPreview, setCustomAvatarPreview] = useState<string | null>(user?.customAvatar || null)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -35,6 +37,7 @@ export function ProfileView() {
         if (d.user) {
           setData(d.user)
           setSelectedAvatar(d.user.avatar)
+          setCustomAvatarPreview(d.user.customAvatar || null)
         }
       })
   }, [])
@@ -44,17 +47,40 @@ export function ProfileView() {
   async function handleSaveAvatar() {
     setSaving(true)
     try {
-      const res = await fetch('/api/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ avatar: selectedAvatar }),
-      })
-      const d = await res.json()
-      if (res.ok) {
-        setUser(d.user)
-        setData(prev => prev ? { ...prev, ...d.user, winRate: prev.winRate } : null)
+      // If custom avatar was selected and there's new data to upload
+      if (selectedAvatar === 'custom' && customAvatarPreview && customAvatarPreview !== user?.customAvatar) {
+        const uploadRes = await fetch('/api/avatar/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: customAvatarPreview }),
+        })
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json()
+          setUser(uploadData.user)
+          setData(prev => prev ? { ...prev, ...uploadData.user, winRate: prev.winRate } : null)
+          setEditingAvatar(false)
+          showToast('success', 'Аватарка обновлена!')
+        } else {
+          showToast('error', 'Не удалось загрузить фото')
+        }
+      } else if (selectedAvatar !== user?.avatar) {
+        // Preset avatar changed
+        const res = await fetch('/api/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ avatar: selectedAvatar }),
+        })
+        const d = await res.json()
+        if (res.ok) {
+          setUser(d.user)
+          setData(prev => prev ? { ...prev, ...d.user, winRate: prev.winRate } : null)
+          setCustomAvatarPreview(d.user.customAvatar || null)
+          setEditingAvatar(false)
+          showToast('success', 'Аватарка обновлена!')
+        }
+      } else {
+        // No changes
         setEditingAvatar(false)
-        showToast('success', 'Аватарка обновлена!')
       }
     } catch (e) {
       showToast('error', 'Не удалось сохранить')
@@ -95,20 +121,26 @@ export function ProfileView() {
           <motion.div
             whileTap={{ scale: 0.95 }}
             onClick={() => setEditingAvatar(!editingAvatar)}
-            className="w-24 h-24 rounded-3xl mx-auto flex items-center justify-center text-6xl mb-3 cursor-pointer relative"
-            style={{ backgroundColor: avatar.color + '40' }}
+            className="inline-block cursor-pointer relative mb-3"
           >
-            {avatar.emoji}
+            <AvatarDisplay
+              avatar={user.avatar}
+              customAvatar={user.customAvatar}
+              size={96}
+              rounded="rounded-3xl"
+            />
             <div className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full w-7 h-7 flex items-center justify-center text-xs">
               ✎
             </div>
           </motion.div>
           <h2 className="text-xl font-bold">{user.username}</h2>
-          <p className="text-sm text-muted-foreground">{avatar.label}</p>
+          <p className="text-sm text-muted-foreground">
+            {user.avatar === 'custom' ? 'Своё фото' : avatar.label}
+          </p>
           {data?.createdAt && (
             <p className="text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
               <Calendar className="w-3 h-3" />
-              С нами с {new Date(data.createdAt).toLocaleDateString('ru-RU')}
+              С нами с {new Date(data.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
           )}
         </motion.div>
@@ -121,20 +153,32 @@ export function ProfileView() {
             exit={{ height: 0, opacity: 0 }}
             className="bg-card/50 border border-border rounded-2xl p-4 mb-4 overflow-hidden"
           >
-            <AvatarGallery selected={selectedAvatar} onSelect={setSelectedAvatar} />
+            <AvatarGallery
+              selected={selectedAvatar}
+              onSelect={setSelectedAvatar}
+              customAvatarPreview={customAvatarPreview}
+              onUpload={(dataUri) => {
+                setCustomAvatarPreview(dataUri)
+                setSelectedAvatar('custom')
+              }}
+            />
             <div className="flex gap-2 mt-4">
               <Button
                 onClick={handleSaveAvatar}
-                disabled={saving || selectedAvatar === user.avatar}
+                disabled={saving || (selectedAvatar === user.avatar && customAvatarPreview === user.customAvatar)}
                 className="flex-1"
               >
-                <Save className="w-4 h-4 mr-2" />
-                {saving ? 'Сохранение...' : 'Сохранить'}
+                {saving ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Сохранение...</>
+                ) : (
+                  <><Save className="w-4 h-4 mr-2" /> Сохранить</>
+                )}
               </Button>
               <Button
                 onClick={() => {
                   setEditingAvatar(false)
                   setSelectedAvatar(user.avatar)
+                  setCustomAvatarPreview(user.customAvatar || null)
                 }}
                 variant="ghost"
               >

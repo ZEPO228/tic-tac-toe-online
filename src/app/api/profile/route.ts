@@ -14,6 +14,7 @@ export async function GET() {
       id: true,
       username: true,
       avatar: true,
+      customAvatar: true,
       gamesPlayed: true,
       gamesWon: true,
       gamesLost: true,
@@ -49,10 +50,16 @@ export async function PATCH(req: Request) {
     const { avatar } = body as { avatar?: string }
 
     if (avatar) {
+      // If switching to a preset avatar, clear customAvatar
+      // If keeping custom, don't touch customAvatar
+      const isPreset = avatar.startsWith('avatar-')
       const updated = await db.user.update({
         where: { id: user.id },
-        data: { avatar },
-        select: { id: true, username: true, avatar: true, gamesPlayed: true, gamesWon: true, gamesLost: true, gamesDraw: true }
+        data: {
+          avatar,
+          ...(isPreset ? { customAvatar: null } : {})
+        },
+        select: { id: true, username: true, avatar: true, customAvatar: true, gamesPlayed: true, gamesWon: true, gamesLost: true, gamesDraw: true }
       })
       return NextResponse.json({ user: updated })
     }

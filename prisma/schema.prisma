@@ -11,20 +11,23 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  username     String   @unique
-  password     String
-  avatar       String   @default("avatar-1")
-  gamesPlayed  Int      @default(0)
-  gamesWon     Int      @default(0)
-  gamesLost    Int      @default(0)
-  gamesDraw    Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String   @id @default(cuid())
+  username      String   @unique
+  password      String
+  avatar        String   @default("avatar-1")
+  customAvatar  String?  // Base64 data URI for uploaded avatars
+  gamesPlayed   Int      @default(0)
+  gamesWon      Int      @default(0)
+  gamesLost     Int      @default(0)
+  gamesDraw     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  gamesAsP1    Game[]   @relation("GamePlayer1")
-  gamesAsP2    Game[]   @relation("GamePlayer2")
-  messages     Message[]
+  gamesAsP1     Game[]   @relation("GamePlayer1")
+  gamesAsP2     Game[]   @relation("GamePlayer2")
+  messages      Message[]
+  sentMessages  DirectMessage[] @relation("DirectMessageSender")
+  receivedMessages DirectMessage[] @relation("DirectMessageRecipient")
 }
 
 model Game {
@@ -54,4 +57,19 @@ model Message {
   createdAt DateTime @default(now())
 
   user      User?    @relation(fields: [userId], references: [id])
+}
+
+model DirectMessage {
+  id           String   @id @default(cuid())
+  senderId     String
+  recipientId  String
+  text         String
+  read         Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  sender       User     @relation("DirectMessageSender", fields: [senderId], references: [id])
+  recipient    User     @relation("DirectMessageRecipient", fields: [recipientId], references: [id])
+
+  @@index([senderId, recipientId, createdAt])
+  @@index([recipientId, senderId, createdAt])
 }

@@ -6,6 +6,7 @@ export interface User {
   id: string
   username: string
   avatar: string
+  customAvatar?: string | null
   gamesPlayed: number
   gamesWon: number
   gamesLost: number
@@ -14,7 +15,7 @@ export interface User {
   createdAt?: string
 }
 
-export type ViewName = 'login' | 'register' | 'menu' | 'matchmaking' | 'game' | 'profile' | 'settings' | 'players' | 'chat'
+export type ViewName = 'login' | 'register' | 'menu' | 'matchmaking' | 'game' | 'profile' | 'settings' | 'players' | 'chat' | 'player-profile' | 'private-chats' | 'private-chat'
 
 export interface MatchData {
   gameId: string
@@ -44,6 +45,26 @@ interface ChatMessage {
   createdAt: number
 }
 
+export interface DirectMessage {
+  id: string
+  senderId: string
+  recipientId: string
+  text: string
+  read: boolean
+  createdAt: string
+}
+
+export interface Contact {
+  userId: string
+  username: string
+  avatar: string
+  customAvatar?: string | null
+  lastMessage: string
+  lastMessageAt: string
+  unreadCount: number
+  isOnline: boolean
+}
+
 interface AppStore {
   // Auth
   user: User | null
@@ -52,6 +73,9 @@ interface AppStore {
   // Navigation
   view: ViewName
   setView: (view: ViewName) => void
+  // For viewing other player's profile or private chat
+  selectedPlayerId: string | null
+  setSelectedPlayerId: (id: string | null) => void
 
   // Match
   currentMatch: MatchData | null
@@ -70,11 +94,21 @@ interface AppStore {
   // Online
   onlineCount: number
   setOnlineCount: (n: number) => void
+  onlineUserIds: Set<string>
+  setOnlineUserIds: (ids: Set<string>) => void
 
-  // Chat
+  // Chat (global)
   messages: ChatMessage[]
   setMessages: (m: ChatMessage[]) => void
   addMessage: (m: ChatMessage) => void
+
+  // Direct messages
+  directMessages: DirectMessage[]
+  setDirectMessages: (m: DirectMessage[]) => void
+  addDirectMessage: (m: DirectMessage) => void
+  // Contacts list
+  contacts: Contact[]
+  setContacts: (c: Contact[]) => void
 
   // Toast notifications
   toast: { id: number; type: 'info' | 'success' | 'error'; message: string } | null
@@ -90,6 +124,8 @@ export const useAppStore = create<AppStore>((set) => ({
 
   view: 'login',
   setView: (view) => set({ view }),
+  selectedPlayerId: null,
+  setSelectedPlayerId: (id) => set({ selectedPlayerId: id }),
 
   currentMatch: null,
   setCurrentMatch: (match) => set({ currentMatch: match }),
@@ -104,10 +140,18 @@ export const useAppStore = create<AppStore>((set) => ({
 
   onlineCount: 0,
   setOnlineCount: (n) => set({ onlineCount: n }),
+  onlineUserIds: new Set<string>(),
+  setOnlineUserIds: (ids) => set({ onlineUserIds: ids }),
 
   messages: [],
   setMessages: (m) => set({ messages: m }),
   addMessage: (m) => set((state) => ({ messages: [...state.messages.slice(-49), m] })),
+
+  directMessages: [],
+  setDirectMessages: (m) => set({ directMessages: m }),
+  addDirectMessage: (m) => set((state) => ({ directMessages: [...state.directMessages.slice(-199), m] })),
+  contacts: [],
+  setContacts: (c) => set({ contacts: c }),
 
   toast: null,
   showToast: (type, message) => {

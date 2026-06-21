@@ -14,6 +14,7 @@ export function RegisterView() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [avatar, setAvatar] = useState('avatar-1')
+  const [customAvatarData, setCustomAvatarData] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -22,6 +23,7 @@ export function RegisterView() {
     setError('')
     setLoading(true)
     try {
+      // First register the account with preset avatar
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -32,6 +34,24 @@ export function RegisterView() {
         setError(data.error || 'Ошибка регистрации')
         return
       }
+
+      // If custom avatar was selected, upload it
+      if (avatar === 'custom' && customAvatarData) {
+        try {
+          const uploadRes = await fetch('/api/avatar/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: customAvatarData }),
+          })
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json()
+            data.user = uploadData.user
+          }
+        } catch (e) {
+          console.error('Avatar upload failed:', e)
+        }
+      }
+
       setUser(data.user)
       setView('menu')
       showToast('success', `Добро пожаловать, ${data.user.username}!`)
@@ -109,7 +129,15 @@ export function RegisterView() {
             </div>
           </div>
 
-          <AvatarGallery selected={avatar} onSelect={setAvatar} />
+          <AvatarGallery
+            selected={avatar}
+            onSelect={setAvatar}
+            customAvatarPreview={customAvatarData}
+            onUpload={(dataUri) => {
+              setCustomAvatarData(dataUri)
+              setAvatar('custom')
+            }}
+          />
 
           {error && (
             <motion.div
@@ -123,7 +151,7 @@ export function RegisterView() {
 
           <Button
             type="submit"
-            disabled={loading || !username || !password}
+            disabled={loading || !username || !password || (avatar === 'custom' && !customAvatarData)}
             className="w-full h-12 text-base"
             size="lg"
           >

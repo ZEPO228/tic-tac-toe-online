@@ -16,10 +16,12 @@ export async function GET() {
       id: true,
       username: true,
       avatar: true,
+      customAvatar: true,
       gamesPlayed: true,
       gamesWon: true,
       gamesLost: true,
       gamesDraw: true,
+      createdAt: true,
     }
   })
 

@@ -104,6 +104,9 @@ async function persistGame(game: ActiveGame) {
 
 function broadcastOnlineCount(io: Server) {
   io.emit('online_count', { count: onlinePlayers.size })
+  // Also broadcast the list of online user IDs so clients can show online/offline status
+  const onlineUserIds = Array.from(onlinePlayers.keys())
+  io.emit('online_users', { userIds: onlineUserIds })
 }
 
 function broadcastQueueCount(io: Server) {
@@ -504,6 +507,54 @@ export function setupSocketIO(io: Server) {
         status: p.status,
       }))
       socket.emit('online_players', { players })
+    })
+
+    // === Direct Messages ===
+    socket.on('dm_send', async ({ recipientId, text }: { recipientId: string; text: string }) => {
+      const player = onlinePlayers.get(userId)
+      if (!player) return
+      const trimmed = (text || '').slice(0, 1000).trim()
+      if (!trimmed || recipientId === userId) return
+
+      // Verify recipient exists and get info
+      const recipient = await db.user.findUnique({
+        where: { id: recipientId },
+        select: { id: true, username: true, avatar: true, customAvatar: true }
+      })
+      if (!recipient) return
+
+      // Persist to DB
+      const msg = await db.directMessage.create({
+        data: { senderId: userId, recipientId, text: trimmed }
+      })
+
+      // Build message payload
+      const msgPayload = {
+        id: msg.id,
+        senderId: msg.senderId,
+        recipientId: msg.recipientId,
+        text: msg.text,
+        read: msg.read,
+        createdAt: msg.createdAt.getTime(),
+        senderUsername: player.username,
+        senderAvatar: player.avatar,
+      }
+
+      // Send to sender (echo back)
+      socket.emit('dm_message', msgPayload)
+
+      // Send to recipient if online
+      const recipientPlayer = onlinePlayers.get(recipientId)
+      if (recipientPlayer) {
+        io.to(recipientPlayer.socketId).emit('dm_message', msgPayload)
+      }
+    })
+
+    socket.on('dm_typing', ({ recipientId, isTyping }: { recipientId: string; isTyping: boolean }) => {
+      const recipientPlayer = onlinePlayers.get(recipientId)
+      if (recipientPlayer) {
+        io.to(recipientPlayer.socketId).emit('dm_typing', { fromUserId: userId, isTyping })
+      }
     })
 
     socket.on('disconnect', () => {

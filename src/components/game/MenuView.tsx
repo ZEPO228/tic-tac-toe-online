@@ -4,7 +4,8 @@ import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/lib/store'
 import { getAvatar } from '@/lib/avatars'
-import { Gamepad2, Users, MessageCircle, User as UserIcon, Settings, LogOut, Trophy, Activity } from 'lucide-react'
+import { AvatarDisplay } from './AvatarDisplay'
+import { Gamepad2, Users, MessageCircle, User as UserIcon, Settings, LogOut, Trophy, Activity, Mail } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 interface MenuStats {
@@ -14,18 +15,29 @@ interface MenuStats {
 }
 
 export function MenuView() {
-  const { user, setView, setUser, showToast, onlineCount } = useAppStore()
+  const { user, setView, setUser, showToast, onlineCount, contacts } = useAppStore()
   const [stats, setStats] = useState<MenuStats | null>(null)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
     fetch('/api/stats')
       .then(r => r.json())
       .then(setStats)
       .catch(() => {})
+
+    // Fetch contacts to get unread count
+    fetch('/api/direct-messages/contacts')
+      .then(r => r.json())
+      .then(d => {
+        if (d.contacts) {
+          const total = d.contacts.reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0)
+          setUnreadCount(total)
+        }
+      })
+      .catch(() => {})
   }, [])
 
   if (!user) return null
-  const avatar = getAvatar(user.avatar)
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -38,6 +50,7 @@ export function MenuView() {
     { icon: Gamepad2, label: 'Поиск игры', desc: 'Найти соперника или бота', view: 'matchmaking' as const, primary: true },
     { icon: Trophy, label: 'Игроки', desc: 'Рейтинг и список', view: 'players' as const },
     { icon: MessageCircle, label: 'Чат', desc: 'Общий онлайн чат', view: 'chat' as const },
+    { icon: Mail, label: 'Личные чаты', desc: unreadCount > 0 ? `${unreadCount} непрочитанных` : 'Личные сообщения', view: 'private-chats' as const, badge: unreadCount > 0 ? unreadCount : undefined },
     { icon: UserIcon, label: 'Профиль', desc: 'Статистика и аватар', view: 'profile' as const },
     { icon: Settings, label: 'Настройки', desc: 'Тема, звук', view: 'settings' as const },
   ]
@@ -81,15 +94,16 @@ export function MenuView() {
           className="bg-card/60 backdrop-blur-xl border border-border rounded-2xl p-4 mb-6 cursor-pointer hover:border-primary/50 transition-colors"
         >
           <div className="flex items-center gap-4">
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl shrink-0"
-              style={{ backgroundColor: avatar.color + '40' }}
-            >
-              {avatar.emoji}
-            </div>
+            <AvatarDisplay
+              avatar={user.avatar}
+              customAvatar={user.customAvatar}
+              size={64}
+            />
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-lg truncate">{user.username}</div>
-              <div className="text-sm text-muted-foreground">{avatar.label}</div>
+              <div className="text-sm text-muted-foreground">
+                {user.avatar === 'custom' ? 'Своё фото' : getAvatar(user.avatar).label}
+              </div>
               <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
                 <span>{user.gamesPlayed} игр</span>
                 <span className="text-primary">{user.gamesWon} побед</span>
@@ -111,7 +125,7 @@ export function MenuView() {
                 console.log('[MenuView] clicked', item.label, '-> view', item.view)
                 setView(item.view)
               }}
-              className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all ${
+              className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all relative ${
                 item.primary
                   ? 'bg-primary/10 border-primary/30 hover:bg-primary/20'
                   : 'bg-card/40 border-border hover:border-primary/30 hover:bg-card/60'
@@ -126,6 +140,11 @@ export function MenuView() {
                 <div className="font-semibold">{item.label}</div>
                 <div className="text-xs text-muted-foreground truncate">{item.desc}</div>
               </div>
+              {item.badge && (
+                <div className="bg-destructive text-destructive-foreground rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center text-xs font-bold">
+                  {item.badge > 99 ? '99+' : item.badge}
+                </div>
+              )}
               {item.primary && (
                 <motion.div
                   animate={{ x: [0, 4, 0] }}

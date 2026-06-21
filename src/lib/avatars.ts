@@ -1,5 +1,4 @@
-// Avatar gallery — using DiceBear API for variety (works offline via SVG data URIs as fallback)
-// Each avatar has an id, label, and emoji fallback for offline use
+// Avatar gallery — using emoji-based avatars as presets + support for custom uploaded avatars
 
 export interface AvatarDef {
   id: string
@@ -37,4 +36,18 @@ export const AVATARS: AvatarDef[] = [
 
 export function getAvatar(id: string): AvatarDef {
   return AVATARS.find(a => a.id === id) || AVATARS[0]
+}
+
+// Check if an avatar id represents a custom (uploaded) avatar
+export function isCustomAvatar(avatar: string): boolean {
+  return avatar === 'custom'
+}
+
+// Render avatar — returns either emoji info or custom data URI
+export function getAvatarDisplay(avatar: string, customAvatar?: string | null): { type: 'emoji'; emoji: string; color: string; label: string } | { type: 'custom'; src: string } {
+  if (avatar === 'custom' && customAvatar) {
+    return { type: 'custom', src: customAvatar }
+  }
+  const def = getAvatar(avatar)
+  return { type: 'emoji', emoji: def.emoji, color: def.color, label: def.label }
 }
