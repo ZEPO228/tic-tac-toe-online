@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
 import { getBestMove, checkWinner, isBoardFull, Board, Cell } from '@/lib/bot'
+import { db } from '@/lib/db'
 
 // In-memory game store for bot games (same as socket server but via HTTP)
 interface BotGame {
@@ -12,9 +13,32 @@ interface BotGame {
   playerSymbol: Cell
   botSymbol: Cell
   updatedAt: number
+  userId: string
+  statsUpdated: boolean
 }
 
 const botGames = new Map<string, BotGame>()
+
+async function updateStats(game: BotGame) {
+  if (game.statsUpdated) return
+  game.statsUpdated = true
+  try {
+    const user = await db.user.findUnique({ where: { id: game.userId } })
+    if (!user) return
+    const result = game.winner === 'draw' ? 'draw' : game.winner === game.playerSymbol ? 'win' : 'loss'
+    await db.user.update({
+      where: { id: game.userId },
+      data: {
+        gamesPlayed: { increment: 1 },
+        gamesWon: result === 'win' ? { increment: 1 } : user.gamesWon,
+        gamesLost: result === 'loss' ? { increment: 1 } : user.gamesLost,
+        gamesDraw: result === 'draw' ? { increment: 1 } : user.gamesDraw,
+      }
+    })
+  } catch (e) {
+    console.error('updateStats error:', e)
+  }
+}
 
 export async function POST(req: NextRequest) {
   const user = await getAuthUser()
@@ -36,6 +60,8 @@ export async function POST(req: NextRequest) {
       playerSymbol: 'X',
       botSymbol: 'O',
       updatedAt: Date.now(),
+      userId: user.id,
+      statsUpdated: false,
     }
     const id = `bot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     botGames.set(id, newGame)
@@ -84,9 +110,11 @@ export async function POST(req: NextRequest) {
       game.status = 'finished'
       game.winner = playerResult.winner
       game.winningLine = playerResult.line
+      await updateStats(game)
     } else if (isBoardFull(game.board)) {
       game.status = 'finished'
       game.winner = 'draw'
+      await updateStats(game)
     } else {
       // Bot move (after small delay, but we do it synchronously here)
       const botMove = getBestMove([...game.board], game.botSymbol, 'medium')
@@ -99,9 +127,11 @@ export async function POST(req: NextRequest) {
           game.status = 'finished'
           game.winner = botResult.winner
           game.winningLine = botResult.line
+          await updateStats(game)
         } else if (isBoardFull(game.board)) {
           game.status = 'finished'
           game.winner = 'draw'
+          await updateStats(game)
         }
       }
     }
