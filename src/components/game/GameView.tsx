@@ -4,15 +4,42 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '@/lib/store'
 import { getSocket } from '@/lib/socket-client'
 import { getAvatar } from '@/lib/avatars'
-import { useEffect, useState } from 'react'
-import { Trophy, Frown, Handshake, Bot, ArrowLeft, RotateCcw } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
+import { Bot, ArrowLeft, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export function GameView() {
   const { user, currentMatch, gameState, setGameState, setView, setCurrentMatch, showToast } = useAppStore()
   const [showResult, setShowResult] = useState(false)
+  const [httpGameId, setHttpGameId] = useState<string | null>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const statsUpdatedRef = useRef(false)
+
+  // For bot games, use HTTP API; for multiplayer, use socket.io
+  const isBotGame = currentMatch?.isVsBot
 
   useEffect(() => {
+    // If it's a bot game and we don't have an HTTP game ID yet, create one
+    if (isBotGame && !httpGameId) {
+      fetch('/api/game/bot-move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create' }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.gameId) {
+            setHttpGameId(data.gameId)
+          }
+        })
+        .catch(e => console.error('Failed to create bot game:', e))
+    }
+  }, [isBotGame, httpGameId])
+
+  // Socket.io listeners for multiplayer games
+  useEffect(() => {
+    if (isBotGame) return // bot games use HTTP
+
     const socket = getSocket()
     if (!socket) return
 
@@ -34,7 +61,26 @@ export function GameView() {
       socket.off('game_state', onGameState)
       socket.off('game_end', onGameEnd)
     }
-  }, [])
+  }, [isBotGame])
+
+  // Update stats when game ends (for bot games via HTTP)
+  useEffect(() => {
+    if (!isBotGame || !gameState || statsUpdatedRef.current) return
+    if (gameState.status !== 'finished') return
+    
+    statsUpdatedRef.current = true
+    // Update user stats locally
+    if (user) {
+      const won = gameState.winner === user.id || (currentMatch && gameState.winner === currentMatch.player1.symbol)
+      // Refresh user data from server
+      fetch('/api/profile').then(r => r.json()).then(d => {
+        if (d.user) {
+          useAppStore.getState().setUser(d.user)
+        }
+      })
+    }
+    setTimeout(() => setShowResult(true), 800)
+  }, [gameState, isBotGame, user, currentMatch])
 
   if (!currentMatch || !gameState || !user) {
     return (
@@ -47,7 +93,6 @@ export function GameView() {
     )
   }
 
-  // Determine which player is "me" and which is opponent
   const isPlayer1 = currentMatch.player1.userId === user.id
   const me = isPlayer1 ? currentMatch.player1 : currentMatch.player2
   const opponent = isPlayer1 ? currentMatch.player2 : currentMatch.player1
@@ -58,23 +103,55 @@ export function GameView() {
   const oppAvatar = getAvatar(opponent.avatar)
 
   const isMyTurn = gameState.currentTurn === mySymbol && gameState.status === 'active'
-  const isBot = currentMatch.isVsBot
 
-  function handleCellClick(index: number) {
+  async function handleCellClick(index: number) {
     if (gameState.status !== 'active') return
     if (gameState.board[index] !== '') return
     if (!isMyTurn) return
+    if (isProcessing) return
 
-    const socket = getSocket()
-    if (socket) {
-      socket.emit('game_move', { gameId: gameState.gameId, index })
+    if (isBotGame && httpGameId) {
+      // HTTP-based bot game
+      setIsProcessing(true)
+      try {
+        const res = await fetch('/api/game/bot-move', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'move', gameId: httpGameId, index }),
+        })
+        const data = await res.json()
+        if (res.ok) {
+          setGameState({
+            gameId: data.gameId,
+            board: data.board,
+            currentTurn: data.currentTurn,
+            status: data.status,
+            winner: data.winner,
+            winningLine: data.winningLine,
+          })
+        } else {
+          showToast('error', data.error || 'Ошибка хода')
+        }
+      } catch (e) {
+        showToast('error', 'Сетевая ошибка')
+      } finally {
+        setIsProcessing(false)
+      }
+    } else {
+      // Multiplayer via socket.io
+      const socket = getSocket()
+      if (socket) {
+        socket.emit('game_move', { gameId: gameState.gameId, index })
+      }
     }
   }
 
   function handleLeave() {
-    const socket = getSocket()
-    if (socket && gameState.status === 'active') {
-      socket.emit('game_leave', { gameId: gameState.gameId })
+    if (!isBotGame) {
+      const socket = getSocket()
+      if (socket && gameState.status === 'active') {
+        socket.emit('game_leave', { gameId: gameState.gameId })
+      }
     }
     setCurrentMatch(null)
     setGameState(null)
@@ -85,6 +162,8 @@ export function GameView() {
     setShowResult(false)
     setCurrentMatch(null)
     setGameState(null)
+    setHttpGameId(null)
+    statsUpdatedRef.current = false
     setView('matchmaking')
   }
 
@@ -92,10 +171,11 @@ export function GameView() {
     setShowResult(false)
     setCurrentMatch(null)
     setGameState(null)
+    setHttpGameId(null)
+    statsUpdatedRef.current = false
     setView('menu')
   }
 
-  // Result computation
   let result: 'win' | 'loss' | 'draw' | null = null
   if (gameState.status === 'finished' && gameState.winner) {
     if (gameState.winner === 'draw') result = 'draw'
@@ -123,7 +203,7 @@ export function GameView() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="text-sm text-muted-foreground">
-            {isBot ? 'Игра с ботом' : 'Онлайн игра'}
+            {isBotGame ? 'Игра с ботом' : 'Онлайн игра'}
           </div>
           <div className="w-9" />
         </div>
@@ -147,7 +227,7 @@ export function GameView() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-semibold truncate">{opponent.username}</span>
-              {isBot && <Bot className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
+              {isBotGame && <Bot className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
             </div>
             <div className="text-xs text-muted-foreground">
               Символ: <span className="font-mono font-bold text-foreground">{opponentSymbol}</span>
@@ -170,14 +250,14 @@ export function GameView() {
                   <motion.button
                     key={idx}
                     onClick={() => handleCellClick(idx)}
-                    disabled={cell !== '' || gameState.status !== 'active' || !isMyTurn}
-                    whileHover={cell === '' && isMyTurn && gameState.status === 'active' ? { scale: 1.03 } : {}}
-                    whileTap={cell === '' && isMyTurn && gameState.status === 'active' ? { scale: 0.95 } : {}}
+                    disabled={cell !== '' || gameState.status !== 'active' || !isMyTurn || isProcessing}
+                    whileHover={cell === '' && isMyTurn && gameState.status === 'active' && !isProcessing ? { scale: 1.03 } : {}}
+                    whileTap={cell === '' && isMyTurn && gameState.status === 'active' && !isProcessing ? { scale: 0.95 } : {}}
                     className={`relative rounded-2xl flex items-center justify-center text-5xl font-bold transition-all ${
                       isWinning
                         ? 'bg-primary/30 border-2 border-primary'
                         : cell === ''
-                        ? isMyTurn && gameState.status === 'active'
+                        ? isMyTurn && gameState.status === 'active' && !isProcessing
                           ? 'bg-secondary/50 hover:bg-secondary border-2 border-transparent hover:border-primary/30 cursor-pointer'
                           : 'bg-secondary/30 border-2 border-transparent'
                         : cell === 'X'
@@ -200,7 +280,6 @@ export function GameView() {
                         initial={{ scale: 0, rotate: 180 }}
                         animate={{ scale: 1, rotate: 0 }}
                         transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-                        className="text-accent-foreground"
                         style={{ color: 'oklch(0.78 0.18 295)' }}
                       >
                         ⭕
@@ -237,7 +316,7 @@ export function GameView() {
           </div>
           <div className="text-right">
             <div className={`text-xs ${isMyTurn && gameState.status === 'active' ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
-              {isMyTurn && gameState.status === 'active' ? 'Твой ход!' : ''}
+              {isMyTurn && gameState.status === 'active' ? 'Твой ход!' : isProcessing ? 'Обработка...' : ''}
             </div>
           </div>
         </motion.div>
@@ -276,9 +355,7 @@ export function GameView() {
                 {result === 'win'
                   ? 'Отличная игра! Ты победил.'
                   : result === 'loss'
-                  ? gameState.forfeit
-                    ? 'Соперник покинул игру'
-                    : 'В следующий раз повезёт больше!'
+                  ? 'В следующий раз повезёт больше!'
                   : 'Равные силы!'}
               </p>
               <div className="space-y-2">
