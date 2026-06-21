@@ -189,7 +189,7 @@ export function MenuView() {
           transition={{ type: 'spring', stiffness: 120, damping: 18, mass: 1.2, delay: 0.2 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setView('profile')}
-          className="bg-card/60 backdrop-blur-xl border border-border rounded-2xl p-4 mb-6 cursor-pointer hover:border-primary/50 transition-colors"
+          className="bg-card border border-border rounded-2xl p-4 mb-6 cursor-pointer hover:border-primary/50 transition-colors"
         >
           <div className="flex items-center gap-4">
             <AvatarDisplay

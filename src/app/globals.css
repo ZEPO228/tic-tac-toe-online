@@ -138,17 +138,14 @@
   }
 }
 
-/* Light theme gradient-bg override */
-.light .gradient-bg,
-:root:not(.dark):not(.light) .gradient-bg {
+/* Light theme gradient (no fixed attachment — fixed div handles it) */
+.light .gradient-bg {
   background: linear-gradient(135deg, oklch(0.96 0.02 270), oklch(0.94 0.015 295), oklch(0.96 0.02 270));
-  background-attachment: fixed;
 }
 
 @media (prefers-color-scheme: light) {
   :root:not(.dark):not(.light) .gradient-bg {
     background: linear-gradient(135deg, oklch(0.96 0.02 270), oklch(0.94 0.015 295), oklch(0.96 0.02 270));
-    background-attachment: fixed;
   }
 }
 
@@ -245,30 +242,58 @@
   transform-origin: left center;
 }
 
+/*
+ * CRITICAL: background-attachment: fixed is the #1 cause of mobile scroll jank.
+ * On mobile, the browser repaints the background on every scroll frame → huge GPU load.
+ * Instead, we use a position:fixed background div (.fixed-bg) added to layout.tsx
+ * that stays in place WITHOUT triggering repaints during scroll.
+ */
 .gradient-bg {
   background: linear-gradient(135deg, oklch(0.08 0.05 270), oklch(0.10 0.03 295), oklch(0.08 0.05 270));
-  background-attachment: fixed;
 }
 
-/* Disable pull-to-refresh on mobile + controlled scroll speed */
+/* Fixed background div — GPU-accelerated, no repaints during scroll */
+.fixed-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  z-index: -1;
+  background: linear-gradient(135deg, oklch(0.08 0.05 270), oklch(0.10 0.03 295), oklch(0.08 0.05 270));
+  pointer-events: none;
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+.light .fixed-bg {
+  background: linear-gradient(135deg, oklch(0.96 0.02 270), oklch(0.94 0.015 295), oklch(0.96 0.02 270));
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not(.dark):not(.light) .fixed-bg {
+    background: linear-gradient(135deg, oklch(0.96 0.02 270), oklch(0.94 0.015 295), oklch(0.96 0.02 270));
+  }
+}
+
+/* Mobile scroll optimization — based on research of best practices */
 html, body {
   overscroll-behavior: none;
-  touch-action: pan-y;
+  /* touch-action: auto allows native momentum scrolling (smooth) */
+  touch-action: auto;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  /* Remove -webkit-overflow-scrolling: touch to reduce momentum on Android */
-  /* Use default scrolling (not momentum) for more controlled feel */
 }
 
-/* Android Chrome: use overscroll-contain on scrollable containers */
-* {
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* Scrollable containers — controlled scrolling (no fast momentum) */
+/* GPU layer promotion for scrollable containers — prevents repaint jank */
 .max-w-md, .flex-1, .overflow-y-auto, .custom-scroll {
+  /* contain: layout style paint isolates the element for rendering */
+  contain: layout style;
+  /* translateZ(0) promotes to GPU layer — no repaints during scroll */
+  transform: translateZ(0);
+  /* overscroll-behavior: contain prevents scroll chaining to parent */
   overscroll-behavior: contain;
-  /* No -webkit-overflow-scrolling to avoid fast momentum */
 }
 
 /* Improve touch target accuracy on buttons */
@@ -277,7 +302,7 @@ button, a, [role="button"] {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Better scroll momentum on iOS (only for explicit scroll containers) */
+/* Scroll containers — native momentum scrolling */
 .scroll-container {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;

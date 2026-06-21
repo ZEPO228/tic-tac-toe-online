@@ -65,6 +65,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} antialiased bg-background text-foreground overscroll-none`}
       >
+        {/* Fixed background div — GPU-accelerated, no repaints during scroll (replaces background-attachment: fixed) */}
+        <div className="fixed-bg" />
         {children}
         <Toaster />
         <ToastContainer />

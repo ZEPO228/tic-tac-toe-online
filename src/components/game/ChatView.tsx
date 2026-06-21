@@ -146,7 +146,7 @@ export function ChatView() {
       {/* Input */}
       <form
         onSubmit={handleSend}
-        className="p-3 border-t border-border bg-card/30 backdrop-blur-md flex gap-2 items-end"
+        className="p-3 border-t border-border bg-card flex gap-2 items-end"
       >
         <Input
           value={text}

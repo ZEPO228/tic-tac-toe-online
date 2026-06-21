@@ -132,7 +132,7 @@ export function ProfileView() {
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="bg-card/50 backdrop-blur-xl border border-border rounded-2xl p-6 mb-4 text-center"
+          className="bg-card border border-border rounded-2xl p-6 mb-4 text-center"
         >
           <motion.div
             whileTap={{ scale: 0.95 }}
