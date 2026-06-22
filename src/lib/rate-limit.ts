@@ -58,21 +58,35 @@ export function rateLimit(key: string, opts: RateLimitOptions = {}): RateLimitRe
 
 /** Extract client IP from NextRequest headers.
  *
- * Railway's load balancer sets `x-forwarded-for` with the real client IP
- * as the first entry. We also check `x-real-ip` as a fallback (some proxies
- * set this instead). The `cf-connecting-ip` header is checked for Cloudflare.
+ * On Railway, the load balancer adds itself to x-forwarded-for. The header
+ * looks like: "x-forwarded-for: <edge-ip>, <real-client-ip>". The FIRST
+ * entry is the Railway edge node (which rotates between requests), and the
+ * LAST entry is the real client IP. We want the real client IP for rate
+ * limiting.
+ *
+ * Header priority:
+ *   1. x-forwarded-for (split, take LAST entry = real client IP)
+ *   2. x-real-ip (Railway sets this to the edge IP — least useful)
+ *   3. cf-connecting-ip (Cloudflare, if used)
+ *   4. 'unknown' (last resort)
  *
  * NOTE: On Railway with multiple replicas, in-memory rate limiting is per-instance.
  * For true cross-instance rate limiting, use Upstash Ratelimit (Redis-based).
- * The current implementation still helps against abusive single-IP clients
- * and prevents accidental spam from a single user agent.
  */
 export function getClientIp(req: Request): string {
   const headers = new Headers(req.headers)
+  const xff = headers.get('x-forwarded-for')
+  if (xff) {
+    const parts = xff.split(',').map(s => s.trim()).filter(Boolean)
+    // The LAST IP in x-forwarded-for is the original client IP.
+    // The first IPs are intermediary proxies (Railway edge, etc.).
+    if (parts.length > 0) {
+      return parts[parts.length - 1]
+    }
+  }
   return (
-    headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    headers.get('x-real-ip') ||
     headers.get('cf-connecting-ip') ||
+    headers.get('x-real-ip') || // Less reliable on Railway (edge IP, rotates)
     'unknown'
   )
 }
