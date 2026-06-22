@@ -408,3 +408,63 @@ Stage Summary:
 - Все rate limits работают (подтверждено smoke-тестами)
 - DB logs чистые (нет prisma:query spam)
 - Schema push безопасный (без --accept-data-loss)
+
+---
+Task ID: FIXES-PRO-2026-06-22
+Agent: Super Z (main)
+Task: Исправить 4 оставшихся проблемы (1 CRITICAL + 2 MEDIUM + 1 LOW)
+
+Work Log:
+- CRITICAL: httpOnly cookie + socket-token endpoint
+  - Created /api/auth/socket-token endpoint (reads httpOnly cookie server-side, returns 5-min token)
+  - auth.ts: setAuthCookie now uses httpOnly: true
+  - auth.ts: added signSocketToken() with 5-min TTL
+  - socket-client.ts: rewritten to fetch token via /api/auth/socket-token
+    - in-memory cache (4 min TTL, refetches before expiry)
+    - deduplicates concurrent fetches via tokenFetchPromise
+    - disconnectSocket() clears cached token (forces fresh fetch on re-login)
+  - removed dead src/lib/cookies.ts (no longer used)
+
+- MEDIUM: CORS hardening on Socket.io
+  - server.ts: cors.origin now uses RAILWAY_PUBLIC_DOMAIN in production (was '*')
+  - credentials: true for cookie support
+  - dev mode still allows any origin (true) for cross-device testing
+
+- MEDIUM: Better rate limit keys on Railway
+  - rate-limit.ts: getRateLimitKey() combines IP + UA fingerprint + optional user ID
+  - getClientIp now takes LAST entry in x-forwarded-for (real client IP, was FIRST = Railway edge IP)
+  - added cf-connecting-ip fallback (Cloudflare)
+  - register/login use getRateLimitKey (was getClientIp alone)
+  - bot-move/avatar-upload rate-limit per user ID (was per IP)
+
+- LOW: Implemented sound + vibrate + autoQueue settings
+  - Created src/lib/game-feedback.ts:
+    - Web Audio API synth (no audio files bundled, ~3KB)
+    - playMove: 800Hz triangle wave, 60ms
+    - playWin: ascending arpeggio C5-E5-G5-C6
+    - playLose: descending sawtooth 300-200-150Hz
+    - playDraw: two-tone 440-330Hz sine
+    - vibrate() with patterns per event
+    - settings cache with invalidateSettingsCache()
+    - isAutoQueueEnabled() helper
+  - SettingsView: update() invalidates settings cache; sound toggle plays sample; updated descriptions
+  - GameView: playMove() on every player move; playResult() on game finish; uses useAppStore.getState() in socket handlers
+  - MenuView: autoQueue triggers matchmaking on first mount; autoQueueTriggeredRef prevents re-triggering
+
+- TypeScript: clean (bunx tsc --noEmit passes)
+- Build: clean (bun run build passes)
+- 6 деплоев на Railway: все SUCCESS
+- Smoke-тесты:
+  - Cookie: ✓ HttpOnly, ✓ Secure, ✓ SameSite=lax
+  - socket-token endpoint: ✓ returns 5-min token, ✓ 401 without cookie
+  - CORS: ✓ access-control-allow-origin locked to railway domain (was *)
+  - Rate limit: real client IP detected (79.x.x.x instead of edge 47.x.x.x)
+  - Settings: all 3 toggles functional (sound/vibrate/autoQueue)
+- Cleanup: 14 тестовых пользователей удалено, 9 реальных осталось (включая DDR_ZIK)
+
+Stage Summary:
+- CRITICAL проблема с httpOnly cookie исправлена — теперь даже при XSS атакующий не сможет украсть токен
+- CORS на Socket.io закрыт — сторонние сайты не могут подключаться
+- Rate limit теперь видит реальный client IP (не edge IP) — будет работать для пользователей со стабильным IP
+- Sound/vibrate/autoQueue полностью реализованы и интегрированы в UI
+- Проект теперь production-ready с точки зрения безопасности
