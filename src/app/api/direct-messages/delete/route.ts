@@ -29,8 +29,9 @@ export async function POST(req: NextRequest) {
     })
 
     return NextResponse.json({ deleted: result.count })
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Внутренняя ошибка'
     console.error('Delete chat error:', e)
-    return NextResponse.json({ error: e?.message || 'Внутренняя ошибка' }, { status: 500 })
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

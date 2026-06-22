@@ -32,13 +32,16 @@ export function PlayerProfileView() {
       setView('players')
       return
     }
-    fetch(`/api/players/${selectedPlayerId}`)
-      .then(r => r.json())
+    const ctrl = new AbortController()
+    fetch(`/api/players/${selectedPlayerId}`, { signal: ctrl.signal })
+      .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (d.player) setData(d.player)
+        if (d?.player) setData(d.player)
       })
+      .catch((e) => { if (e.name !== 'AbortError') console.warn('player fetch failed:', e) })
       .finally(() => setLoading(false))
-  }, [selectedPlayerId])
+    return () => ctrl.abort()
+  }, [selectedPlayerId, setView])
 
   if (loading) {
     return (

@@ -35,4 +35,7 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
 # Start with a simple script
-CMD ["sh", "-c", "bunx prisma db push --accept-data-loss 2>&1 || true; exec bun server.ts"]
+# Note: 'prisma db push' (without --accept-data-loss) is safe: it will refuse
+# to apply any destructive schema changes (column drops etc.) and just
+# create missing tables. Migrations should be done explicitly via prisma migrate.
+CMD ["sh", "-c", "bunx prisma db push --skip-generate 2>&1 || true; exec bun server.ts"]

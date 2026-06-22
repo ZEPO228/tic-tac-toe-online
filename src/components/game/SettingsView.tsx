@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { ArrowLeft, Volume2, Vibrate, Sun, Moon, Monitor, Info, Check } from 'lucide-react'
+import { ArrowLeft, Volume2, Vibrate, Sun, Moon, Monitor, Info, Check, type LucideIcon } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useTheme, ThemeMode } from '@/lib/use-theme'
 import { AnimatedLogo } from './AnimatedLogo'
@@ -30,7 +30,9 @@ export function SettingsView() {
           vibrate: parsed.vibrate ?? true,
           autoQueue: parsed.autoQueue ?? false,
         })
-      } catch {}
+      } catch (e) {
+        console.warn('Failed to parse settings from localStorage:', e)
+      }
     }
   }, [])
 
@@ -50,7 +52,7 @@ export function SettingsView() {
     showToast('success', labels[mode] + ' включена')
   }
 
-  const themeOptions: { mode: ThemeMode; label: string; icon: any; desc: string }[] = [
+  const themeOptions: { mode: ThemeMode; label: string; icon: LucideIcon; desc: string }[] = [
     { mode: 'system', label: 'Системная', icon: Monitor, desc: 'Как в ОС' },
     { mode: 'dark', label: 'Тёмная', icon: Moon, desc: 'Тёмная тема' },
     { mode: 'light', label: 'Светлая', icon: Sun, desc: 'Светлая тема' },
@@ -157,7 +159,7 @@ export function SettingsView() {
             <AnimatedLogo size="sm" className="mx-auto mb-2" />
             <div className="font-semibold">Крестики-Нолики Онлайн</div>
             <div className="text-xs text-muted-foreground mt-1">
-              Версия 2.1.0 · Next.js + Socket.io + Prisma
+              Версия 2.2.0 · Next.js + Socket.io + Prisma
             </div>
             <div className="text-xs text-muted-foreground mt-2">
               Деплой: Railway · GitHub: ZEPO228

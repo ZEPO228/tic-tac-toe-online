@@ -1,40 +1,84 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { useAppStore } from '@/lib/store'
+import { useAppStore, GameState } from '@/lib/store'
 import { getSocket } from '@/lib/socket-client'
 import { AvatarDisplay } from './AvatarDisplay'
 import { useEffect, useState, useRef } from 'react'
 import { Bot, ArrowLeft, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
+interface GameStateFromServer {
+  gameId: string
+  board: string[]
+  currentTurn: 'X' | 'O'
+  status: 'active' | 'finished'
+  winner: 'X' | 'O' | 'draw' | null
+  winningLine: number[] | null
+  forfeit?: boolean
+}
+
 export function GameView() {
   const { user, currentMatch, gameState, setGameState, setView, setCurrentMatch, showToast } = useAppStore()
   const [showResult, setShowResult] = useState(false)
   const [httpGameId, setHttpGameId] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [botGameError, setBotGameError] = useState<string | null>(null)
   const statsUpdatedRef = useRef(false)
+  const resultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   // For bot games, use HTTP API; for multiplayer, use socket.io
   const isBotGame = currentMatch?.isVsBot
 
+  // Cleanup all timers and in-flight requests on unmount
   useEffect(() => {
-    // If it's a bot game and we don't have an HTTP game ID yet, create one
-    if (isBotGame && !httpGameId) {
-      fetch('/api/game/bot-move', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create' }),
-      })
-        .then(r => r.json())
-        .then(data => {
-          if (data.gameId) {
-            setHttpGameId(data.gameId)
-          }
-        })
-        .catch(e => console.error('Failed to create bot game:', e))
+    return () => {
+      if (resultTimerRef.current) clearTimeout(resultTimerRef.current)
+      abortControllerRef.current?.abort()
     }
-  }, [isBotGame, httpGameId])
+  }, [])
+
+  // Helper: schedule showResult with cleanup tracking
+  function scheduleShowResult() {
+    if (resultTimerRef.current) clearTimeout(resultTimerRef.current)
+    resultTimerRef.current = setTimeout(() => setShowResult(true), 800)
+  }
+
+  useEffect(() => {
+    if (!isBotGame || httpGameId) return
+
+    // Cancel any previous in-flight create request
+    abortControllerRef.current?.abort()
+    const ctrl = new AbortController()
+    abortControllerRef.current = ctrl
+
+    fetch('/api/game/bot-move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create' }),
+      signal: ctrl.signal,
+    })
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
+      .then(data => {
+        if (data.gameId) {
+          setHttpGameId(data.gameId)
+          setBotGameError(null)
+        } else {
+          setBotGameError('Не удалось создать игру с ботом')
+          showToast('error', 'Не удалось создать игру с ботом')
+        }
+      })
+      .catch(e => {
+        if (e.name === 'AbortError') return
+        console.error('Failed to create bot game:', e)
+        setBotGameError('Сетевая ошибка при создании игры')
+        showToast('error', 'Сетевая ошибка при создании игры')
+      })
+  }, [isBotGame, httpGameId, showToast])
 
   // Socket.io listeners for multiplayer games
   useEffect(() => {
@@ -43,15 +87,17 @@ export function GameView() {
     const socket = getSocket()
     if (!socket) return
 
-    const onGameState = (state: any) => {
+    const onGameState = (state: GameStateFromServer) => {
+      // Validate server payload shape before trusting it.
+      if (!state || !Array.isArray(state.board) || state.board.length !== 9) return
       setGameState(state)
       if (state.status === 'finished') {
-        setTimeout(() => setShowResult(true), 800)
+        scheduleShowResult()
       }
     }
 
     const onGameEnd = () => {
-      setTimeout(() => setShowResult(true), 800)
+      scheduleShowResult()
     }
 
     socket.on('game_state', onGameState)
@@ -61,26 +107,27 @@ export function GameView() {
       socket.off('game_state', onGameState)
       socket.off('game_end', onGameEnd)
     }
-  }, [isBotGame])
+  }, [isBotGame, setGameState])
 
   // Update stats when game ends (for bot games via HTTP)
   useEffect(() => {
     if (!isBotGame || !gameState || statsUpdatedRef.current) return
     if (gameState.status !== 'finished') return
-    
+
     statsUpdatedRef.current = true
-    // Update user stats locally
+    // Refresh user data from server
     if (user) {
-      const won = gameState.winner === user.id || (currentMatch && gameState.winner === currentMatch.player1.symbol)
-      // Refresh user data from server
-      fetch('/api/profile').then(r => r.json()).then(d => {
-        if (d.user) {
-          useAppStore.getState().setUser(d.user)
-        }
-      })
+      fetch('/api/profile')
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (d?.user) {
+            useAppStore.getState().setUser(d.user)
+          }
+        })
+        .catch(() => {})
     }
-    setTimeout(() => setShowResult(true), 800)
-  }, [gameState, isBotGame, user, currentMatch])
+    scheduleShowResult()
+  }, [gameState, isBotGame, user])
 
   if (!currentMatch || !gameState || !user) {
     return (
@@ -93,19 +140,42 @@ export function GameView() {
     )
   }
 
+  // Defensive null checks — bot games always have player2 (the bot).
+  if (!currentMatch.player1 || !currentMatch.player2) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">Некорректные данные матча</p>
+          <Button onClick={() => setView('menu')}>Вернуться в меню</Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (isBotGame && botGameError && !httpGameId) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">{botGameError}</p>
+          <Button onClick={() => setView('menu')}>Вернуться в меню</Button>
+        </div>
+      </div>
+    )
+  }
+
   const isPlayer1 = currentMatch.player1.userId === user.id
   const me = isPlayer1 ? currentMatch.player1 : currentMatch.player2
   const opponent = isPlayer1 ? currentMatch.player2 : currentMatch.player1
   const mySymbol = me.symbol
   const opponentSymbol = opponent.symbol
 
-
-
-  const isMyTurn = gameState.currentTurn === mySymbol && gameState.status === 'active'
+  // At this point gameState is guaranteed non-null (early return above).
+  const gs = gameState as GameState
+  const isMyTurn = gs.currentTurn === mySymbol && gs.status === 'active'
 
   async function handleCellClick(index: number) {
-    if (gameState.status !== 'active') return
-    if (gameState.board[index] !== '') return
+    if (gs.status !== 'active') return
+    if (gs.board[index] !== '') return
     if (!isMyTurn) return
     if (isProcessing) return
 
@@ -131,7 +201,7 @@ export function GameView() {
         } else {
           showToast('error', data.error || 'Ошибка хода')
         }
-      } catch (e) {
+      } catch {
         showToast('error', 'Сетевая ошибка')
       } finally {
         setIsProcessing(false)
@@ -140,7 +210,7 @@ export function GameView() {
       // Multiplayer via socket.io
       const socket = getSocket()
       if (socket) {
-        socket.emit('game_move', { gameId: gameState.gameId, index })
+        socket.emit('game_move', { gameId: gs.gameId, index })
       }
     }
   }
@@ -148,8 +218,8 @@ export function GameView() {
   function handleLeave() {
     if (!isBotGame) {
       const socket = getSocket()
-      if (socket && gameState.status === 'active') {
-        socket.emit('game_leave', { gameId: gameState.gameId })
+      if (socket && gs.status === 'active') {
+        socket.emit('game_leave', { gameId: gs.gameId })
       }
     }
     setCurrentMatch(null)
@@ -163,6 +233,7 @@ export function GameView() {
     setGameState(null)
     setHttpGameId(null)
     statsUpdatedRef.current = false
+    setBotGameError(null)
     setView('matchmaking')
   }
 
@@ -172,17 +243,18 @@ export function GameView() {
     setGameState(null)
     setHttpGameId(null)
     statsUpdatedRef.current = false
+    setBotGameError(null)
     setView('menu')
   }
 
   let result: 'win' | 'loss' | 'draw' | null = null
-  if (gameState.status === 'finished' && gameState.winner) {
-    if (gameState.winner === 'draw') result = 'draw'
-    else if (gameState.winner === mySymbol) result = 'win'
+  if (gs.status === 'finished' && gs.winner) {
+    if (gs.winner === 'draw') result = 'draw'
+    else if (gs.winner === mySymbol) result = 'win'
     else result = 'loss'
   }
 
-  const winningLine = gameState.winningLine
+  const winningLine = gs.winningLine
 
   return (
     <motion.div
@@ -231,8 +303,8 @@ export function GameView() {
             </div>
           </div>
           <div className="text-right">
-            <div className={`text-xs ${!isMyTurn && gameState.status === 'active' ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
-              {!isMyTurn && gameState.status === 'active' ? 'Ходит...' : ''}
+            <div className={`text-xs ${!isMyTurn && gs.status === 'active' ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
+              {!isMyTurn && gs.status === 'active' ? 'Ходит...' : ''}
             </div>
           </div>
         </motion.div>
@@ -241,26 +313,30 @@ export function GameView() {
         <div className="flex-1 flex items-center justify-center">
           <div className="w-full max-w-[320px] aspect-square">
             <div className="grid grid-cols-3 gap-2 h-full p-3 bg-card/30 rounded-3xl border border-border">
-              {gameState.board.map((cell, idx) => {
+              {gs.board.map((cell, idx) => {
                 const isWinning = winningLine?.includes(idx)
+                const row = Math.floor(idx / 3) + 1
+                const col = (idx % 3) + 1
+                const cellLabel = `Ряд ${row}, столбец ${col}, ${cell === 'X' ? 'крестик' : cell === 'O' ? 'нолик' : 'пусто'}`
                 return (
                   <motion.button
                     key={idx}
                     onClick={() => handleCellClick(idx)}
-                    disabled={cell !== '' || gameState.status !== 'active' || !isMyTurn || isProcessing}
-                    whileHover={cell === '' && isMyTurn && gameState.status === 'active' && !isProcessing ? { scale: 1.03 } : {}}
-                    whileTap={cell === '' && isMyTurn && gameState.status === 'active' && !isProcessing ? { scale: 0.95 } : {}}
+                    disabled={cell !== '' || gs.status !== 'active' || !isMyTurn || isProcessing}
+                    whileHover={cell === '' && isMyTurn && gs.status === 'active' && !isProcessing ? { scale: 1.03 } : {}}
+                    whileTap={cell === '' && isMyTurn && gs.status === 'active' && !isProcessing ? { scale: 0.95 } : {}}
+                    aria-label={cellLabel}
                     className={`relative rounded-2xl flex items-center justify-center text-5xl font-bold transition-all ${
                       isWinning
                         ? 'bg-primary/30 border-2 border-primary'
                         : cell === ''
-                        ? isMyTurn && gameState.status === 'active' && !isProcessing
+                        ? isMyTurn && gs.status === 'active' && !isProcessing
                           ? 'bg-secondary/50 hover:bg-secondary border-2 border-transparent hover:border-primary/30 cursor-pointer'
                           : 'bg-secondary/30 border-2 border-transparent'
                         : cell === 'X'
                         ? 'bg-primary/10 border-2 border-primary/20'
                         : 'bg-accent/10 border-2 border-accent/20'
-                    } ${!isMyTurn && cell === '' && gameState.status === 'active' ? 'cursor-not-allowed' : ''}`}
+                    } ${!isMyTurn && cell === '' && gs.status === 'active' ? 'cursor-not-allowed' : ''}`}
                   >
                     {cell === 'X' && (
                       <motion.span
@@ -277,7 +353,7 @@ export function GameView() {
                         initial={{ scale: 0, rotate: 180 }}
                         animate={{ scale: 1, rotate: 0 }}
                         transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-                        style={{ color: 'oklch(0.78 0.18 295)' }}
+                        className="text-accent-foreground"
                       >
                         ⭕
                       </motion.span>
@@ -338,6 +414,7 @@ export function GameView() {
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
                 className="text-7xl mb-4"
+                aria-hidden="true"
               >
                 {result === 'win' ? '🎉' : result === 'loss' ? '😔' : '🤝'}
               </motion.div>

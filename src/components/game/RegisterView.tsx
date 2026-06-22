@@ -47,16 +47,32 @@ export function RegisterView() {
           if (uploadRes.ok) {
             const uploadData = await uploadRes.json()
             data.user = uploadData.user
+          } else {
+            // Avatar upload failed — surface the error to the user instead
+            // of silently leaving them with a 'custom' avatar that has no image.
+            const errBody = await uploadRes.json().catch(() => ({}))
+            showToast('error', errBody.error || 'Не удалось загрузить аватар')
+            // Fall back to a preset avatar so the user can still log in
+            const fallbackRes = await fetch('/api/profile', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ avatar: 'avatar-1' }),
+            })
+            if (fallbackRes.ok) {
+              const fallbackData = await fallbackRes.json()
+              data.user = fallbackData.user
+            }
           }
         } catch (e) {
           console.error('Avatar upload failed:', e)
+          showToast('error', 'Сетевая ошибка при загрузке аватара')
         }
       }
 
       setUser(data.user)
       setView('menu')
       showToast('success', `Добро пожаловать, ${data.user.username}!`)
-    } catch (err) {
+    } catch {
       setError('Сетевая ошибка. Попробуй ещё раз.')
     } finally {
       setLoading(false)
@@ -125,9 +141,10 @@ export function RegisterView() {
                 className="pl-10 h-12"
                 disabled={loading}
                 required
-                minLength={4}
+                minLength={6}
               />
             </div>
+            <p className="text-xs text-muted-foreground">Минимум 6 символов</p>
           </div>
 
           <AvatarGallery
@@ -144,6 +161,7 @@ export function RegisterView() {
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
+              role="alert"
               className="text-sm text-destructive bg-destructive/10 rounded-lg p-3"
             >
               {error}

@@ -25,24 +25,37 @@ interface ProfileData {
 export function ProfileView() {
   const { user, setView, setUser, showToast } = useAppStore()
   const [data, setData] = useState<ProfileData | null>(null)
+  const [loading, setLoading] = useState(true)
   const [editingAvatar, setEditingAvatar] = useState(false)
   const [selectedAvatar, setSelectedAvatar] = useState(user?.avatar || 'avatar-1')
   const [customAvatarPreview, setCustomAvatarPreview] = useState<string | null>(user?.customAvatar || null)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    fetch('/api/profile')
-      .then(r => r.json())
+    const ctrl = new AbortController()
+    fetch('/api/profile', { signal: ctrl.signal })
+      .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (d.user) {
+        if (d?.user) {
           setData(d.user)
           setSelectedAvatar(d.user.avatar)
           setCustomAvatarPreview(d.user.customAvatar || null)
         }
       })
+      .catch((e) => { if (e.name !== 'AbortError') console.warn('profile fetch failed:', e) })
+      .finally(() => setLoading(false))
+    return () => ctrl.abort()
   }, [])
 
   if (!user) return null
+
+  if (loading) {
+    return (
+      <div className="min-h-[100dvh] gradient-bg flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   async function handleSaveAvatar() {
     setSaving(true)
@@ -136,8 +149,10 @@ export function ProfileView() {
         >
           <motion.div
             whileTap={{ scale: 0.95 }}
-            onClick={() => setEditingAvatar(!editingAvatar)}
+            onClick={() => setEditingAvatar(true)}
             className="inline-block cursor-pointer relative mb-3"
+            role="button"
+            aria-label="Изменить аватар"
           >
             <AvatarDisplay
               avatar={user.avatar}

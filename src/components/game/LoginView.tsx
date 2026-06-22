@@ -34,7 +34,7 @@ export function LoginView() {
       setUser(data.user)
       setView('menu')
       showToast('success', `С возвращением, ${data.user.username}!`)
-    } catch (err) {
+    } catch {
       setError('Сетевая ошибка. Попробуй ещё раз.')
     } finally {
       setLoading(false)
@@ -109,6 +109,7 @@ export function LoginView() {
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
+              role="alert"
               className="text-sm text-destructive bg-destructive/10 rounded-lg p-3"
             >
               {error}

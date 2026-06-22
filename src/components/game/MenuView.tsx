@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useAppStore } from '@/lib/store'
+import { useAppStore, Contact } from '@/lib/store'
 import { getAvatar } from '@/lib/avatars'
 import { AvatarDisplay } from './AvatarDisplay'
 import { Gamepad2, Users, MessageCircle, User as UserIcon, Settings, LogOut, Trophy, Activity, Mail } from 'lucide-react'
@@ -60,6 +60,16 @@ const cardVariants = [
   },
 ]
 
+interface MenuItemProps {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  desc: string
+  primary?: boolean
+  badge?: number
+  onClick: () => void
+  variantIndex: number
+}
+
 const MenuItem = memo(function MenuItem({
   icon: Icon,
   label,
@@ -68,15 +78,7 @@ const MenuItem = memo(function MenuItem({
   badge,
   onClick,
   variantIndex,
-}: {
-  icon: any
-  label: string
-  desc: string
-  primary?: boolean
-  badge?: number
-  onClick: () => void
-  variantIndex: number
-}) {
+}: MenuItemProps) {
   const variant = cardVariants[variantIndex % cardVariants.length]
   return (
     <motion.button
@@ -117,29 +119,40 @@ export function MenuView() {
   const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
-    fetch('/api/stats')
-      .then(r => r.json())
-      .then(setStats)
-      .catch(() => {})
+    const ctrl = new AbortController()
 
-    fetch('/api/direct-messages/contacts')
-      .then(r => r.json())
+    fetch('/api/stats', { signal: ctrl.signal })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setStats(d) })
+      .catch((e) => { if (e.name !== 'AbortError') console.warn('stats fetch failed:', e) })
+
+    fetch('/api/direct-messages/contacts', { signal: ctrl.signal })
+      .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (d.contacts) {
-          const total = d.contacts.reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0)
+        if (d?.contacts) {
+          const total = d.contacts.reduce((sum: number, c: Contact) => sum + (c.unreadCount || 0), 0)
           setUnreadCount(total)
         }
       })
-      .catch(() => {})
+      .catch((e) => { if (e.name !== 'AbortError') console.warn('contacts fetch failed:', e) })
+
+    return () => ctrl.abort()
   }, [])
 
   if (!user) return null
 
   async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    setUser(null)
-    setView('login')
-    showToast('info', 'Вы вышли из аккаунта')
+    // Logout must always succeed locally even if the server call fails
+    // (e.g., network error). Wrap in try/finally so the user state is cleared.
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch (e) {
+      console.warn('Logout API call failed (clearing locally anyway):', e)
+    } finally {
+      setUser(null)
+      setView('login')
+      showToast('info', 'Вы вышли из аккаунта')
+    }
   }
 
   const menuItems = [

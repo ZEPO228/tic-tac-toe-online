@@ -22,10 +22,13 @@ export function ChatView() {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const socketRef = useRef(getSocket())
+  const sendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    const socket = socketRef.current
+    // Fetch socket fresh (do NOT cache in a ref — see socket-client.ts comment).
+    // The socket singleton itself is cached inside getSocket(); we just don't
+    // want a stale ref pointing to an old, disconnected socket after re-login.
+    const socket = getSocket()
     if (!socket) return
 
     // Request chat history
@@ -45,7 +48,8 @@ export function ChatView() {
       socket.off('chat_history', onHistory)
       socket.off('chat_message', onMessage)
     }
-  }, [])
+    // Re-run when user changes (e.g., after re-login).
+  }, [user, setMessages, addMessage])
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -54,17 +58,26 @@ export function ChatView() {
     }
   }, [messages])
 
+  // Cleanup pending sending timer on unmount
+  useEffect(() => {
+    return () => {
+      if (sendingTimerRef.current) clearTimeout(sendingTimerRef.current)
+    }
+  }, [])
+
   function handleSend(e: React.FormEvent) {
     e.preventDefault()
     const trimmed = text.trim()
     if (!trimmed || sending) return
     setSending(true)
-    const socket = socketRef.current
+    const socket = getSocket()
     if (socket) {
       socket.emit('chat_message', { text: trimmed })
       setText('')
     }
-    setTimeout(() => setSending(false), 200)
+    // Reset sending state after a short delay (prevents spam-clicking).
+    // Cleared on unmount via the effect above.
+    sendingTimerRef.current = setTimeout(() => setSending(false), 200)
   }
 
   return (
@@ -87,8 +100,8 @@ export function ChatView() {
           <h1 className="text-lg font-bold">Общий чат</h1>
           <p className="text-xs text-muted-foreground">{messages.length} сообщений</p>
         </div>
-        <div className="flex items-center gap-1 text-xs text-primary">
-          <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+        <div className="flex items-center gap-1 text-xs text-primary" role="status" aria-label="Онлайн чат">
+          <div className="w-2 h-2 rounded-full bg-primary animate-pulse" aria-hidden="true" />
           <span>Live</span>
         </div>
       </div>
@@ -100,7 +113,7 @@ export function ChatView() {
       >
         {messages.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            <div className="text-4xl mb-2">💬</div>
+            <div className="text-4xl mb-2" aria-hidden="true">💬</div>
             <p className="text-sm">Сообщений пока нет</p>
             <p className="text-xs">Будь первым!</p>
           </div>

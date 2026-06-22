@@ -12,12 +12,13 @@ const port = parseInt(process.env.PORT || '3000', 10)
 const hostname = '0.0.0.0'
 
 async function main() {
-  // Push Prisma schema to database (creates tables if they don't exist)
+  // Push Prisma schema to database (creates missing tables only — NO data loss)
   if (!dev && process.env.DATABASE_URL) {
     try {
       console.log('[server] Pushing Prisma schema to database...')
-      execSync('npx prisma db push --accept-data-loss 2>&1 || true', { stdio: 'inherit', env: process.env })
-      console.log('[server] Database schema push attempted')
+      // NOTE: removed --accept-data-loss to prevent destructive schema changes in production
+      execSync('npx prisma db push --skip-generate 2>&1', { stdio: 'inherit', env: process.env })
+      console.log('[server] Database schema push completed')
     } catch (e) {
       console.error('[server] Failed to push schema (continuing anyway):', e)
     }

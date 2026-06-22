@@ -24,10 +24,13 @@ export function PlayersView() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/players')
-      .then(r => r.json())
-      .then(d => setPlayers(d.players || []))
+    const ctrl = new AbortController()
+    fetch('/api/players', { signal: ctrl.signal })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.players) setPlayers(d.players) })
+      .catch((e) => { if (e.name !== 'AbortError') console.warn('players fetch failed:', e) })
       .finally(() => setLoading(false))
+    return () => ctrl.abort()
   }, [])
 
   function openPlayerProfile(playerId: string) {

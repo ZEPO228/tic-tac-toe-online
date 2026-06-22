@@ -51,6 +51,11 @@ const activeGames = new Map<string, ActiveGame>() // gameId -> ActiveGame
 let recentMessages: Array<{ id: string; userId: string | null; username: string; avatar: string; text: string; createdAt: number }> = []
 const MAX_MESSAGES = 50
 
+// Module-level reference to the io server — set by setupSocketIO.
+// This lets helper functions (makeBotMove, finishGame, etc.) emit events
+// without needing io passed as an argument everywhere.
+let io: Server | null = null
+
 // Load recent messages from DB on server start (so chat history persists across deploys/restarts)
 ;(async () => {
   try {
@@ -113,7 +118,7 @@ async function persistGame(game: ActiveGame) {
         player1Symbol: game.player1.symbol,
         player2Symbol: game.player2?.symbol || 'O',
         isVsBot: game.isVsBot,
-        status: game.status === 'active' ? 'finished' : 'finished',
+        status: 'finished',
         winner: game.winner === 'draw' ? 'draw' : game.winner === game.player1.symbol ? 'player1' : 'player2',
         board: JSON.stringify(game.board),
         currentTurn: game.currentTurn,
@@ -125,14 +130,14 @@ async function persistGame(game: ActiveGame) {
 }
 
 function broadcastOnlineCount(io: Server) {
-  io.emit('online_count', { count: onlinePlayers.size })
+  io!.emit('online_count', { count: onlinePlayers.size })
   // Also broadcast the list of online user IDs so clients can show online/offline status
   const onlineUserIds = Array.from(onlinePlayers.keys())
-  io.emit('online_users', { userIds: onlineUserIds })
+  io!.emit('online_users', { userIds: onlineUserIds })
 }
 
 function broadcastQueueCount(io: Server) {
-  io.emit('queue_count', { count: queue.length })
+  io!.emit('queue_count', { count: queue.length })
 }
 
 function makeBotMove(game: ActiveGame) {
@@ -159,7 +164,7 @@ function makeBotMove(game: ActiveGame) {
       game.winner = 'draw'
     }
 
-    io.to(`game:${game.id}`).emit('game_state', {
+    io!.to(`game:${game.id}`).emit('game_state', {
       gameId: game.id,
       board: game.board,
       currentTurn: game.currentTurn,
@@ -190,7 +195,7 @@ function finishGame(game: ActiveGame) {
   }
 
   // Notify players
-  io.to(`game:${game.id}`).emit('game_end', {
+  io!.to(`game:${game.id}`).emit('game_end', {
     gameId: game.id,
     winner: game.winner,
     winningLine: game.winningLine,
@@ -263,13 +268,13 @@ function tryMatch(io: Server) {
     if (op2) { op2.status = 'game'; op2.gameId = game.id }
 
     // Join socket rooms
-    const s1 = io.sockets.sockets.get(first.socketId)
-    const s2 = io.sockets.sockets.get(second.socketId)
+    const s1 = io!.sockets.sockets.get(first.socketId)
+    const s2 = io!.sockets.sockets.get(second.socketId)
     s1?.join(`game:${game.id}`)
     s2?.join(`game:${game.id}`)
 
     // Notify both
-    io.to(`game:${game.id}`).emit('match_found', {
+    io!.to(`game:${game.id}`).emit('match_found', {
       gameId: game.id,
       player1: { userId: first.userId, username: first.username, avatar: first.avatar, symbol: 'X' },
       player2: { userId: second.userId, username: second.username, avatar: second.avatar, symbol: 'O' },
@@ -321,10 +326,10 @@ function startBotGame(io: Server, playerId: string) {
   player.status = 'game'
   player.gameId = game.id
 
-  const s = io.sockets.sockets.get(player.socketId)
+  const s = io!.sockets.sockets.get(player.socketId)
   s?.join(`game:${game.id}`)
 
-  io.to(`game:${game.id}`).emit('match_found', {
+  io!.to(`game:${game.id}`).emit('match_found', {
     gameId: game.id,
     player1: { userId: player.userId, username: player.username, avatar: player.avatar, symbol: 'X' },
     player2: { userId: 'bot', username: 'Бот', avatar: 'avatar-16', symbol: 'O' },
@@ -335,9 +340,12 @@ function startBotGame(io: Server, playerId: string) {
   broadcastQueueCount(io)
 }
 
-export function setupSocketIO(io: Server) {
+export function setupSocketIO(ioServer: Server) {
+  // Store the io instance at module level so helper functions can emit events.
+  io = ioServer
+
   // Auth middleware
-  io.use((socket: Socket, next) => {
+  ioServer.use((socket: Socket, next) => {
     const token = socket.handshake.auth?.token as string | undefined
     if (!token) {
       return next(new Error('No token provided'))
@@ -351,7 +359,7 @@ export function setupSocketIO(io: Server) {
     next()
   })
 
-  io.on('connection', (socket: Socket) => {
+  ioServer.on('connection', (socket: Socket) => {
     const userId = (socket as any).userId as string
     const username = (socket as any).username as string
 
@@ -366,7 +374,7 @@ export function setupSocketIO(io: Server) {
           socketId: socket.id,
           status: 'menu',
         })
-        broadcastOnlineCount(io)
+        broadcastOnlineCount(ioServer)
         socket.emit('connected', { userId, username, avatar })
       })
 
@@ -387,7 +395,7 @@ export function setupSocketIO(io: Server) {
       }
       queue.push(q)
       player.status = 'queue'
-      broadcastQueueCount(io)
+      broadcastQueueCount(ioServer)
 
       // After 20 seconds, send "play with bot" option
       q.timer = setTimeout(() => {
@@ -397,7 +405,7 @@ export function setupSocketIO(io: Server) {
         }
       }, 20_000)
 
-      tryMatch(io)
+      tryMatch(ioServer)
     })
 
     socket.on('queue_leave', () => {
@@ -409,11 +417,11 @@ export function setupSocketIO(io: Server) {
       }
       const player = onlinePlayers.get(userId)
       if (player) player.status = 'menu'
-      broadcastQueueCount(io)
+      broadcastQueueCount(ioServer)
     })
 
     socket.on('play_with_bot', () => {
-      startBotGame(io, userId)
+      startBotGame(ioServer, userId)
     })
 
     // === Game moves ===
@@ -423,7 +431,9 @@ export function setupSocketIO(io: Server) {
       if (!game || game.status !== 'active') { console.log('[server] game not found or not active'); return }
       if (index < 0 || index > 8 || game.board[index] !== '') return
 
-      const playerSymbol: Cell = game.player1.userId === userId ? game.player1.symbol : game.player2?.symbol
+      const playerSymbol: Cell | undefined = game.player1.userId === userId
+        ? game.player1.symbol
+        : game.player2?.symbol
       if (!playerSymbol) return
       if (game.currentTurn !== playerSymbol) return
 
@@ -440,7 +450,7 @@ export function setupSocketIO(io: Server) {
         game.winner = 'draw'
       }
 
-      io.to(`game:${game.id}`).emit('game_state', {
+      io!.to(`game:${game.id}`).emit('game_state', {
         gameId: game.id,
         board: game.board,
         currentTurn: game.currentTurn,
@@ -471,7 +481,7 @@ export function setupSocketIO(io: Server) {
           game.winner = leaverSymbol === game.player1.symbol ? game.player2!.symbol : game.player1.symbol
         }
         game.status = 'finished'
-        io.to(`game:${game.id}`).emit('game_state', {
+        io!.to(`game:${game.id}`).emit('game_state', {
           gameId: game.id,
           board: game.board,
           currentTurn: game.currentTurn,
@@ -507,7 +517,7 @@ export function setupSocketIO(io: Server) {
       db.message.create({ data: { userId, username: player.username, avatar: player.avatar, text: trimmed } })
         .catch(e => console.error('chat persist error:', e))
 
-      io.emit('chat_message', msg)
+      io!.emit('chat_message', msg)
     })
 
     socket.on('chat_history', () => {
@@ -568,14 +578,14 @@ export function setupSocketIO(io: Server) {
       // Send to recipient if online
       const recipientPlayer = onlinePlayers.get(recipientId)
       if (recipientPlayer) {
-        io.to(recipientPlayer.socketId).emit('dm_message', msgPayload)
+        io!.to(recipientPlayer.socketId).emit('dm_message', msgPayload)
       }
     })
 
     socket.on('dm_typing', ({ recipientId, isTyping }: { recipientId: string; isTyping: boolean }) => {
       const recipientPlayer = onlinePlayers.get(recipientId)
       if (recipientPlayer) {
-        io.to(recipientPlayer.socketId).emit('dm_typing', { fromUserId: userId, isTyping })
+        io!.to(recipientPlayer.socketId).emit('dm_typing', { fromUserId: userId, isTyping })
       }
     })
 
@@ -586,7 +596,7 @@ export function setupSocketIO(io: Server) {
         const q = queue[qIdx]
         if (q.timer) clearTimeout(q.timer)
         queue.splice(qIdx, 1)
-        broadcastQueueCount(io)
+        broadcastQueueCount(ioServer)
       }
 
       // Forfeit any active games
@@ -599,7 +609,7 @@ export function setupSocketIO(io: Server) {
             game.winner = leaverSymbol === game.player1.symbol ? game.player2!.symbol : game.player1.symbol
           }
           game.status = 'finished'
-          io.to(`game:${game.id}`).emit('game_state', {
+          io!.to(`game:${game.id}`).emit('game_state', {
             gameId: game.id,
             board: game.board,
             currentTurn: game.currentTurn,
@@ -613,10 +623,10 @@ export function setupSocketIO(io: Server) {
       }
 
       onlinePlayers.delete(userId)
-      broadcastOnlineCount(io)
+      broadcastOnlineCount(ioServer)
     })
   })
 
   // Periodic queue count broadcast
-  setInterval(() => broadcastQueueCount(io), 5_000)
+  setInterval(() => broadcastQueueCount(ioServer), 5_000)
 }

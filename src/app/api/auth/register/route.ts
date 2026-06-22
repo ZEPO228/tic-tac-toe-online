@@ -2,8 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { hashPassword, setAuthCookie } from '@/lib/auth'
 import { AVATARS } from '@/lib/avatars'
+import { rateLimit, getClientIp } from '@/lib/rate-limit'
+
+// Rate limit: 5 registrations per IP per 10 minutes (anti-brute-force + anti-spam).
+// Anyone legitimately using the app will not hit this limit.
+const RL_WINDOW = 10 * 60 * 1000
+const RL_MAX = 5
 
 export async function POST(req: NextRequest) {
+  // Rate limit
+  const ip = getClientIp(req)
+  const rl = rateLimit(`register:${ip}`, { windowMs: RL_WINDOW, max: RL_MAX })
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: 'Слишком много попыток регистрации. Попробуй позже.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
+    )
+  }
+
   try {
     const body = await req.json()
     const { username, password, avatar } = body as { username?: string; password?: string; avatar?: string }
@@ -17,8 +33,12 @@ export async function POST(req: NextRequest) {
     if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
       return NextResponse.json({ error: 'Только латинские буквы, цифры, _ и -' }, { status: 400 })
     }
-    if (password.length < 4) {
-      return NextResponse.json({ error: 'Пароль минимум 4 символа' }, { status: 400 })
+    // Enforce a stronger password: min 6 chars (was 4).
+    if (password.length < 6) {
+      return NextResponse.json({ error: 'Пароль минимум 6 символов' }, { status: 400 })
+    }
+    if (password.length > 200) {
+      return NextResponse.json({ error: 'Пароль слишком длинный' }, { status: 400 })
     }
     // Validate avatar: must be a preset (avatar-1..24) or 'custom' (uploaded separately)
     if (avatar && avatar !== 'custom' && !AVATARS.some(a => a.id === avatar)) {

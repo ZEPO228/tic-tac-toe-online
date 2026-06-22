@@ -66,4 +66,7 @@ export async function getAuthUser(): Promise<{ id: string; username: string; ava
   }
 }
 
-export { COOKIE_NAME, JWT_SECRET }
+// NOTE: JWT_SECRET is intentionally NOT exported — only verifyToken/signToken
+// use it inside this module. Exporting it would let any code in the project
+// (including client-bundled code if imported accidentally) read the secret.
+export { COOKIE_NAME }

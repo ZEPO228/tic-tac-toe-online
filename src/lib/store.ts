@@ -145,7 +145,13 @@ export const useAppStore = create<AppStore>((set) => ({
 
   messages: [],
   setMessages: (m) => set({ messages: m }),
-  addMessage: (m) => set((state) => ({ messages: [...state.messages.slice(-49), m] })),
+  addMessage: (m) => set((state) => {
+    // Dedup: if a message with the same id already exists, skip it.
+    // This happens when socket.io delivers a message between the
+    // `chat_history` request and response.
+    if (state.messages.some(x => x.id === m.id)) return state
+    return { messages: [...state.messages.slice(-49), m] }
+  }),
 
   directMessages: [],
   setDirectMessages: (m) => set({ directMessages: m }),

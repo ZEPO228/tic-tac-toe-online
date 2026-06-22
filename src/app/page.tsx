@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useAppStore } from '@/lib/store'
-import { getSocket, disconnectSocket } from '@/lib/socket-client'
+import { getSocket, disconnectSocket, resetSocket } from '@/lib/socket-client'
 import { LoginView } from '@/components/game/LoginView'
 import { RegisterView } from '@/components/game/RegisterView'
 import { MenuView } from '@/components/game/MenuView'
@@ -46,6 +46,10 @@ export default function Home() {
       return
     }
 
+    // Force-recreate the socket so the new auth token is used.
+    // This fixes the bug where re-login as a different user kept the old
+    // socket (with the old token) cached in the singleton.
+    resetSocket()
     const socket = getSocket()
     if (!socket) {
       setSocketReady(false)
@@ -92,8 +96,8 @@ export default function Home() {
   if (loading) {
     return (
       <div className="min-h-[100dvh] gradient-bg flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-primary" />
+        <div className="text-center" role="status" aria-live="polite">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-primary" aria-hidden="true" />
           <p className="text-sm text-muted-foreground">Загрузка...</p>
         </div>
       </div>

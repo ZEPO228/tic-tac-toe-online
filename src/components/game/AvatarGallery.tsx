@@ -3,7 +3,7 @@
 import { AVATARS, getAvatar } from '@/lib/avatars'
 import { motion } from 'framer-motion'
 import { Check, Upload, Image as ImageIcon } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface AvatarGalleryProps {
   selected: string
@@ -16,8 +16,18 @@ interface AvatarGalleryProps {
 
 export function AvatarGallery({ selected, onSelect, customAvatarPreview, onUpload }: AvatarGalleryProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const readerRef = useRef<FileReader | null>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+
+  // Cleanup any in-flight FileReader on unmount
+  useEffect(() => {
+    return () => {
+      if (readerRef.current) {
+        try { readerRef.current.abort() } catch {}
+      }
+    }
+  }, [])
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -40,20 +50,26 @@ export function AvatarGallery({ selected, onSelect, customAvatarPreview, onUploa
     }
 
     setUploading(true)
+    // Cancel any previous reader (cleanup)
+    if (readerRef.current) {
+      try { readerRef.current.abort() } catch {}
+    }
     const reader = new FileReader()
+    readerRef.current = reader
     reader.onload = () => {
       const result = reader.result as string
       if (onUpload) {
         onUpload(result)
       } else {
-        // Default: just select 'custom' and let parent handle upload
         onSelect('custom')
       }
       setUploading(false)
+      readerRef.current = null
     }
     reader.onerror = () => {
       setError('Не удалось прочитать файл')
       setUploading(false)
+      readerRef.current = null
     }
     reader.readAsDataURL(file)
   }

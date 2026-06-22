@@ -23,7 +23,9 @@ export async function GET(
     return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
   }
 
-  // Get all messages between these two users (last 200)
+  // Get the LATEST 200 messages (desc) then reverse to chronological (asc).
+  // Previous code did `asc + take: 200`, which returned the OLDEST 200 —
+  // users never saw their recent messages in long conversations.
   const messages = await db.directMessage.findMany({
     where: {
       OR: [
@@ -31,9 +33,12 @@ export async function GET(
         { senderId: otherUserId, recipientId: user.id },
       ]
     },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { createdAt: 'desc' },
     take: 200,
   })
+
+  // Reverse so oldest is first, newest last (chronological display order)
+  messages.reverse()
 
   // Mark received messages as read
   await db.directMessage.updateMany({

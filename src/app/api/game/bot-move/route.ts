@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
 import { getBestMove, checkWinner, isBoardFull, Board, Cell } from '@/lib/bot'
 import { db } from '@/lib/db'
+import { rateLimit, getClientIp } from '@/lib/rate-limit'
 
 // In-memory game store for bot games (same as socket server but via HTTP)
 interface BotGame {
@@ -18,6 +19,19 @@ interface BotGame {
 }
 
 const botGames = new Map<string, BotGame>()
+
+// Cleanup stale games every 5 minutes (games not updated in 1 hour).
+// Without this, botGames grows unboundedly as users start new games.
+if (typeof setInterval !== 'undefined') {
+  setInterval(() => {
+    const cutoff = Date.now() - 60 * 60 * 1000 // 1 hour
+    for (const [id, game] of botGames) {
+      if (game.updatedAt < cutoff) {
+        botGames.delete(id)
+      }
+    }
+  }, 5 * 60 * 1000).unref?.()
+}
 
 async function updateStats(game: BotGame) {
   if (game.statsUpdated) return
@@ -40,10 +54,24 @@ async function updateStats(game: BotGame) {
   }
 }
 
+// Rate limit: 60 bot moves per minute per IP (a game has max ~5 moves, so this is generous).
+const RL_WINDOW = 60_000
+const RL_MAX = 60
+
 export async function POST(req: NextRequest) {
   const user = await getAuthUser()
   if (!user) {
     return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+  }
+
+  // Rate limit
+  const ip = getClientIp(req)
+  const rl = rateLimit(`bot-move:${ip}`, { windowMs: RL_WINDOW, max: RL_MAX })
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: 'Слишком много запросов. Подожди минуту.' },
+      { status: 429 }
+    )
   }
 
   const body = await req.json()
@@ -95,6 +123,7 @@ export async function POST(req: NextRequest) {
   if (action === 'move' && gameId && index !== undefined) {
     const game = botGames.get(gameId)
     if (!game) return NextResponse.json({ error: 'Game not found' }, { status: 404 })
+    if (game.userId !== user.id) return NextResponse.json({ error: 'Not your game' }, { status: 403 })
     if (game.status !== 'active') return NextResponse.json({ error: 'Game finished' }, { status: 400 })
     if (game.currentTurn !== game.playerSymbol) return NextResponse.json({ error: 'Not your turn' }, { status: 400 })
     if (index < 0 || index > 8 || game.board[index] !== '') return NextResponse.json({ error: 'Invalid move' }, { status: 400 })
@@ -116,7 +145,7 @@ export async function POST(req: NextRequest) {
       game.winner = 'draw'
       await updateStats(game)
     } else {
-      // Bot move (after small delay, but we do it synchronously here)
+      // Bot move (synchronous — small delay simulated client-side if desired)
       const botMove = getBestMove([...game.board], game.botSymbol, 'medium')
       if (botMove >= 0) {
         game.board[botMove] = game.botSymbol

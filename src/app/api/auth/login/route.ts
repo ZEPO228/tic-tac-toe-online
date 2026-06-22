@@ -1,8 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyPassword, setAuthCookie } from '@/lib/auth'
+import { rateLimit, getClientIp } from '@/lib/rate-limit'
+
+// Rate limit: 10 login attempts per IP per 5 minutes (anti-brute-force).
+const RL_WINDOW = 5 * 60 * 1000
+const RL_MAX = 10
 
 export async function POST(req: NextRequest) {
+  // Rate limit
+  const ip = getClientIp(req)
+  const rl = rateLimit(`login:${ip}`, { windowMs: RL_WINDOW, max: RL_MAX })
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: 'Слишком много попыток входа. Попробуй позже.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
+    )
+  }
+
   try {
     const body = await req.json()
     const { username, password } = body as { username?: string; password?: string }
@@ -12,12 +27,11 @@ export async function POST(req: NextRequest) {
     }
 
     const user = await db.user.findUnique({ where: { username } })
-    if (!user) {
-      return NextResponse.json({ error: 'Неверное имя пользователя или пароль' }, { status: 401 })
-    }
-
-    const valid = await verifyPassword(password, user.password)
-    if (!valid) {
+    // Always run verifyPassword even if user not found — this prevents timing
+    // attacks that would reveal whether a username exists via response timing.
+    const dummyHash = '$2a$10$abcdefghijklmnopqrstuvABCDEFGHIJKLMNOPQRSTUV1234567890abcdefghijklmnopqrstuv'
+    const valid = user ? await verifyPassword(password, user.password) : await verifyPassword(password, dummyHash)
+    if (!user || !valid) {
       return NextResponse.json({ error: 'Неверное имя пользователя или пароль' }, { status: 401 })
     }
 

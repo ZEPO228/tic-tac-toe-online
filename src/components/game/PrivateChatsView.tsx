@@ -10,7 +10,7 @@ export function PrivateChatsView() {
   const { setView, setSelectedPlayerId, onlineUserIds, showToast } = useAppStore()
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
-  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   async function loadContacts() {
     try {
@@ -28,8 +28,9 @@ export function PrivateChatsView() {
 
   useEffect(() => {
     loadContacts()
-    // Refresh contacts every 10 seconds
-    refreshTimerRef.current = setInterval(loadContacts, 10_000)
+    // Refresh contacts every 30 seconds (was 10s — too aggressive).
+    // Most updates come via socket.io 'dm_message' events anyway; polling is just a fallback.
+    refreshTimerRef.current = setInterval(loadContacts, 30_000)
     return () => {
       if (refreshTimerRef.current) clearInterval(refreshTimerRef.current)
     }

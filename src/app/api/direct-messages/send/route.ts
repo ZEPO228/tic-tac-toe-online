@@ -1,12 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getAuthUser } from '@/lib/auth'
+import { rateLimit, getClientIp } from '@/lib/rate-limit'
+
+// Rate limit: 30 DMs per minute per user (anti-spam).
+const RL_WINDOW = 60_000
+const RL_MAX = 30
 
 // POST /api/direct-messages/send — send a direct message
 export async function POST(req: NextRequest) {
   const user = await getAuthUser()
   if (!user) {
     return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+  }
+
+  // Rate limit per user (more accurate than per-IP for authenticated users)
+  const rl = rateLimit(`dm-send:${user.id}`, { windowMs: RL_WINDOW, max: RL_MAX })
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: 'Слишком много сообщений. Подожди минуту.' },
+      { status: 429 }
+    )
   }
 
   const body = await req.json()

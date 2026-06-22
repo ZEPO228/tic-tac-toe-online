@@ -28,7 +28,8 @@ export function PrivateChatView() {
   const [deleting, setDeleting] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const socketRef = useRef(getSocket())
-  const pollingRef = useRef<NodeJS.Timeout | null>(null)
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const sendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Load messages via HTTP (more reliable than socket.io on Railway)
   async function loadMessages() {
@@ -57,13 +58,15 @@ export function PrivateChatView() {
     setLoading(true)
     loadMessages()
 
-    // Poll for new messages every 3 seconds (fallback for socket.io)
-    pollingRef.current = setInterval(loadMessages, 3000)
+    // Poll for new messages every 5 seconds (fallback for socket.io).
+    // Reduced from 3s to 5s to lower API pressure.
+    pollingRef.current = setInterval(loadMessages, 5000)
 
     // Also listen for real-time messages via socket
     const socket = socketRef.current
+    let onDmMessage: ((msg: DirectMessage & { createdAt: string | number }) => void) | null = null
     if (socket) {
-      const onDmMessage = (msg: any) => {
+      onDmMessage = (msg) => {
         if (
           (msg.senderId === selectedPlayerId && msg.recipientId === user?.id) ||
           (msg.senderId === user?.id && msg.recipientId === selectedPlayerId)
@@ -84,13 +87,17 @@ export function PrivateChatView() {
       }
 
       socket.on('dm_message', onDmMessage)
+    }
 
-      return () => {
-        socket.off('dm_message', onDmMessage)
-        if (pollingRef.current) clearInterval(pollingRef.current)
+    // IMPORTANT: cleanup must run ALWAYS, even if socket is null
+    return () => {
+      if (socket && onDmMessage) socket.off('dm_message', onDmMessage)
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+        pollingRef.current = null
       }
     }
-  }, [selectedPlayerId, user?.id])
+  }, [selectedPlayerId, user?.id, setView])
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -122,9 +129,6 @@ export function PrivateChatView() {
             if (prev.some(m => m.id === data.message.id)) return prev
             return [...prev, data.message]
           })
-          // Note: we do NOT emit dm_send via socket here — the HTTP API already
-          // saved the message. The socket 'dm_message' listener will handle
-          // real-time updates if the other user is online.
         }
       } else {
         const errData = await res.json().catch(() => ({}))
@@ -134,9 +138,10 @@ export function PrivateChatView() {
     } catch (e) {
       showToast('error', 'Сетевая ошибка')
       setText(trimmed)
+    } finally {
+      // Reset sending in finally so it ALWAYS clears, even on error
+      sendingTimerRef.current = setTimeout(() => setSending(false), 200)
     }
-
-    setTimeout(() => setSending(false), 200)
   }
 
   async function handleDeleteChat() {

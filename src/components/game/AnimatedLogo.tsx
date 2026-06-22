@@ -36,8 +36,7 @@ export function AnimatedLogo({ size = 'lg', className = '' }: AnimatedLogoProps)
           opacity: { duration: 0.4, delay: 0.1 },
           scale: { type: 'spring', stiffness: 200, damping: 15, delay: 0.1 },
         }}
-        className={`${sizes[size]} drop-shadow-lg`}
-        style={{ color: 'oklch(0.78 0.18 295)' }}
+        className={`${sizes[size]} drop-shadow-lg text-accent-foreground`}
       >
         ⭕
       </motion.span>

@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
-import { useAppStore } from '@/lib/store'
+import { useAppStore, MatchData, GameState } from '@/lib/store'
 import { getSocket } from '@/lib/socket-client'
 import { useEffect, useState, useRef } from 'react'
 import { X, Bot, Loader2, Search, Users } from 'lucide-react'
@@ -32,7 +32,13 @@ export function MatchmakingView() {
 
     // Listeners
     const onQueueCount = ({ count }: { count: number }) => setQueueCount(count)
-    const onMatchFound = (match: any) => {
+    const onMatchFound = (match: MatchData) => {
+      // Basic shape validation before trusting server payload
+      if (!match || !match.gameId || !Array.isArray(match.board) || match.board.length !== 9) {
+        showToast('error', 'Некорректный ответ сервера')
+        setView('menu')
+        return
+      }
       setCurrentMatch(match)
       setGameState({
         gameId: match.gameId,
@@ -50,8 +56,13 @@ export function MatchmakingView() {
     socket.on('match_found', onMatchFound)
     socket.on('bot_available', onBotAvailable)
 
-    // Join queue
-    socket.emit('queue_join')
+    // Join queue — wait for socket to be connected first.
+    const joinQueue = () => socket.emit('queue_join')
+    if (socket.connected) {
+      joinQueue()
+    } else {
+      socket.on('connect', joinQueue)
+    }
 
     // Timer
     const timer = setInterval(() => {
@@ -63,6 +74,7 @@ export function MatchmakingView() {
       socket.off('queue_count', onQueueCount)
       socket.off('match_found', onMatchFound)
       socket.off('bot_available', onBotAvailable)
+      socket.off('connect', joinQueue)
     }
   }, [])
 

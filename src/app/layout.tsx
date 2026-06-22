@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
 import { ToastContainer } from "@/components/game/ToastContainer";
 
 const geistSans = Geist({
@@ -68,7 +67,9 @@ export default function RootLayout({
         {/* Fixed background div — GPU-accelerated, no repaints during scroll (replaces background-attachment: fixed) */}
         <div className="fixed-bg" />
         {children}
-        <Toaster />
+        {/* Only one toast system is rendered — the custom ToastContainer.
+            The shadcn/ui Toaster was removed because useToast is never used
+            anywhere in the app, and rendering both caused double bundle weight. */}
         <ToastContainer />
       </body>
     </html>
