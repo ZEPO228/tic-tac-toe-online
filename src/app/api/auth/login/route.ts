@@ -30,8 +30,11 @@ export async function POST(req: NextRequest) {
     const user = await db.user.findUnique({ where: { username } })
     // Always run verifyPassword even if user not found — this prevents timing
     // attacks that would reveal whether a username exists via response timing.
-    const dummyHash = '$2a$10$abcdefghijklmnopqrstuvABCDEFGHIJKLMNOPQRSTUV1234567890abcdefghijklmnopqrstuv'
-    const valid = user ? await verifyPassword(password, user.password) : await verifyPassword(password, dummyHash)
+    // We use a known-valid dummy hash so bcrypt.compare runs normally.
+    // NOTE: the hash below is a real bcrypt hash of a random string — it will
+    // always return false, but takes the same time as a real verification.
+    const DUMMY_HASH = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
+    const valid = user ? await verifyPassword(password, user.password) : await verifyPassword(password, DUMMY_HASH)
     if (!user || !valid) {
       return NextResponse.json({ error: 'Неверное имя пользователя или пароль' }, { status: 401 })
     }
