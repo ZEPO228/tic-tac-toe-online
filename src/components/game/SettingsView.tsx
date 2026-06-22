@@ -4,20 +4,29 @@ import { motion } from 'framer-motion'
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { ArrowLeft, Volume2, Vibrate, Sun, Moon, Monitor, Info, Check, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, Volume2, Vibrate, Sun, Moon, Monitor, Info, Check, Lock, type LucideIcon } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useTheme, ThemeMode } from '@/lib/use-theme'
 import { AnimatedLogo } from './AnimatedLogo'
 import { invalidateSettingsCache, playMove } from '@/lib/game-feedback'
+import { Input } from '@/components/ui/input'
+import { Loader2 } from 'lucide-react'
 
 export function SettingsView() {
-  const { setView, showToast } = useAppStore()
+  const { setView, showToast, setUser } = useAppStore()
   const { theme, setTheme } = useTheme()
   const [settings, setSettings] = useState({
     sound: true,
     vibrate: true,
     autoQueue: false,
   })
+
+  // Password change form state
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [changingPassword, setChangingPassword] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
 
   // Load from localStorage
   useEffect(() => {
@@ -47,6 +56,54 @@ export function SettingsView() {
     if (key === 'sound' && value) playMove() // play a sample sound
     if (key === 'vibrate' && value && 'vibrate' in navigator) navigator.vibrate(50)
     showToast('success', 'Настройки сохранены')
+  }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault()
+    setPasswordError('')
+
+    // Client-side validation
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Заполни все поля')
+      return
+    }
+    if (newPassword.length < 6) {
+      setPasswordError('Новый пароль минимум 6 символов')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Новый пароль и подтверждение не совпадают')
+      return
+    }
+    if (currentPassword === newPassword) {
+      setPasswordError('Новый пароль должен отличаться от текущего')
+      return
+    }
+
+    setChangingPassword(true)
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        showToast('success', 'Пароль изменён. Войдите заново.')
+        // Clear local state — the server already cleared the cookie.
+        // Force the user back to the login screen.
+        setTimeout(() => {
+          setUser(null)
+          setView('login')
+        }, 1500)
+      } else {
+        setPasswordError(data.error || 'Не удалось изменить пароль')
+      }
+    } catch {
+      setPasswordError('Сетевая ошибка. Попробуй ещё раз.')
+    } finally {
+      setChangingPassword(false)
+    }
   }
 
   function handleThemeChange(mode: ThemeMode) {
@@ -156,6 +213,70 @@ export function SettingsView() {
               />
             </SettingRow>
           </div>
+
+          {/* Password change */}
+          <form
+            onSubmit={handleChangePassword}
+            className="bg-card/50 border border-border rounded-2xl overflow-hidden"
+          >
+            <div className="px-4 pt-4 pb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+              <Lock className="w-3 h-3" />
+              Смена пароля
+            </div>
+            <div className="p-3 space-y-2">
+              <Input
+                type="password"
+                placeholder="Текущий пароль"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+                disabled={changingPassword}
+                className="h-11"
+                required
+              />
+              <Input
+                type="password"
+                placeholder="Новый пароль (мин. 6 символов)"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+                minLength={6}
+                disabled={changingPassword}
+                className="h-11"
+                required
+              />
+              <Input
+                type="password"
+                placeholder="Подтвердите новый пароль"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                disabled={changingPassword}
+                className="h-11"
+                required
+              />
+              {passwordError && (
+                <div role="alert" className="text-sm text-destructive bg-destructive/10 rounded-lg p-2">
+                  {passwordError}
+                </div>
+              )}
+              <Button
+                type="submit"
+                disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+                className="w-full h-11"
+                size="lg"
+              >
+                {changingPassword ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Изменение...</>
+                ) : (
+                  <>Изменить пароль</>
+                )}
+              </Button>
+              <p className="text-[11px] text-muted-foreground text-center">
+                После смены пароля вы выйдете из аккаунта
+              </p>
+            </div>
+          </form>
 
           {/* About */}
           <div className="bg-card/30 border border-border rounded-2xl p-4 text-center">

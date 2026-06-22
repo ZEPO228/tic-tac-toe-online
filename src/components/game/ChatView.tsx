@@ -27,7 +27,7 @@ function isAdminUsername(username: string): boolean {
 }
 
 export function ChatView() {
-  const { setView, user, messages, setMessages, addMessage } = useAppStore()
+  const { setView, user, messages, setMessages, addMessage, setSelectedPlayerId } = useAppStore()
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -73,6 +73,14 @@ export function ChatView() {
       if (sendingTimerRef.current) clearTimeout(sendingTimerRef.current)
     }
   }, [])
+
+  // Click on a user's avatar → open their profile.
+  // For messages without userId (legacy / system messages), do nothing.
+  function openUserProfile(userId: string | null) {
+    if (!userId || userId === user?.id) return
+    setSelectedPlayerId(userId)
+    setView('player-profile')
+  }
 
   function handleSend(e: React.FormEvent) {
     e.preventDefault()
@@ -137,10 +145,17 @@ export function ChatView() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   className={`flex gap-2 ${isMe ? 'flex-row-reverse' : ''}`}
                 >
-                  <AvatarDisplay
-                    avatar={msg.avatar}
-                    size={36}
-                  />
+                  <button
+                    onClick={() => openUserProfile(msg.userId)}
+                    disabled={!msg.userId || msg.userId === user?.id}
+                    className={`shrink-0 ${msg.userId && msg.userId !== user?.id ? 'cursor-pointer hover:opacity-80 transition-opacity' : 'cursor-default'}`}
+                    aria-label={msg.userId && msg.userId !== user?.id ? `Открыть профиль ${msg.username}` : undefined}
+                  >
+                    <AvatarDisplay
+                      avatar={msg.avatar}
+                      size={36}
+                    />
+                  </button>
                   <div className={`flex flex-col max-w-[75%] ${isMe ? 'items-end' : 'items-start'}`}>
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-xs font-semibold ${isMe ? 'text-primary' : ''}`}>
