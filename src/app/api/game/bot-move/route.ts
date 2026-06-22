@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
 import { getBestMove, checkWinner, isBoardFull, Board, Cell } from '@/lib/bot'
 import { db } from '@/lib/db'
-import { rateLimit, getClientIp } from '@/lib/rate-limit'
+import { rateLimit } from '@/lib/rate-limit'
 
 // In-memory game store for bot games (same as socket server but via HTTP)
 interface BotGame {
@@ -64,9 +64,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
   }
 
-  // Rate limit
-  const ip = getClientIp(req)
-  const rl = rateLimit(`bot-move:${ip}`, { windowMs: RL_WINDOW, max: RL_MAX })
+  // Rate limit per user (more accurate than per-IP for authenticated users).
+  // 60 moves/min is generous — a single game has ~5 moves.
+  const rl = rateLimit(`bot-move:${user.id}`, { windowMs: RL_WINDOW, max: RL_MAX })
   if (!rl.ok) {
     return NextResponse.json(
       { error: 'Слишком много запросов. Подожди минуту.' },

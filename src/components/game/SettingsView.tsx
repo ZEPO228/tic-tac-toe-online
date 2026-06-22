@@ -8,6 +8,7 @@ import { ArrowLeft, Volume2, Vibrate, Sun, Moon, Monitor, Info, Check, type Luci
 import { useState, useEffect } from 'react'
 import { useTheme, ThemeMode } from '@/lib/use-theme'
 import { AnimatedLogo } from './AnimatedLogo'
+import { invalidateSettingsCache, playMove } from '@/lib/game-feedback'
 
 export function SettingsView() {
   const { setView, showToast } = useAppStore()
@@ -40,9 +41,11 @@ export function SettingsView() {
     const newSettings = { ...settings, [key]: value }
     setSettings(newSettings)
     localStorage.setItem('ttt_settings', JSON.stringify(newSettings))
-    if (value && 'vibrate' in navigator && key === 'vibrate') {
-      navigator.vibrate(50)
-    }
+    // Invalidate the in-memory cache so the next read picks up the new value.
+    invalidateSettingsCache()
+    // Provide immediate feedback for the toggled feature:
+    if (key === 'sound' && value) playMove() // play a sample sound
+    if (key === 'vibrate' && value && 'vibrate' in navigator) navigator.vibrate(50)
     showToast('success', 'Настройки сохранены')
   }
 
@@ -121,7 +124,7 @@ export function SettingsView() {
             <SettingRow
               icon={<Volume2 className="w-4 h-4" />}
               title="Звук"
-              desc="Звуковые эффекты в игре"
+              desc="Звуковые эффекты хода и победы"
             >
               <Switch
                 checked={settings.sound}
@@ -145,7 +148,7 @@ export function SettingsView() {
             <SettingRow
               icon={<Info className="w-4 h-4" />}
               title="Авто-поиск"
-              desc="Сразу искать игру при входе"
+              desc="Сразу искать игру при входе в меню"
             >
               <Switch
                 checked={settings.autoQueue}

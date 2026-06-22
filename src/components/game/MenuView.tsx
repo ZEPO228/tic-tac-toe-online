@@ -5,7 +5,8 @@ import { useAppStore, Contact } from '@/lib/store'
 import { getAvatar } from '@/lib/avatars'
 import { AvatarDisplay } from './AvatarDisplay'
 import { Gamepad2, Users, MessageCircle, User as UserIcon, Settings, LogOut, Trophy, Activity, Mail } from 'lucide-react'
-import { useEffect, useState, memo } from 'react'
+import { useEffect, useState, memo, useRef } from 'react'
+import { isAutoQueueEnabled } from '@/lib/game-feedback'
 
 interface MenuStats {
   totalUsers: number
@@ -117,6 +118,22 @@ export function MenuView() {
   const { user, setView, setUser, showToast, onlineCount } = useAppStore()
   const [stats, setStats] = useState<MenuStats | null>(null)
   const [unreadCount, setUnreadCount] = useState(0)
+  // Track whether autoQueue has been triggered for this menu session.
+  // Without this, navigating menu → matchmaking → cancel → menu would
+  // trigger autoQueue again (annoying loop).
+  const autoQueueTriggeredRef = useRef(false)
+
+  useEffect(() => {
+    // Auto-queue: if the user has enabled "Авто-поиск" in settings, jump
+    // straight into matchmaking the first time the menu mounts this session.
+    // Subsequent menu visits (after canceling) do NOT re-trigger.
+    if (!autoQueueTriggeredRef.current && isAutoQueueEnabled()) {
+      autoQueueTriggeredRef.current = true
+      // Small delay so the menu renders briefly (feels less jarring)
+      const t = setTimeout(() => setView('matchmaking'), 600)
+      return () => clearTimeout(t)
+    }
+  }, [setView])
 
   useEffect(() => {
     const ctrl = new AbortController()

@@ -2,17 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { hashPassword, setAuthCookie } from '@/lib/auth'
 import { AVATARS } from '@/lib/avatars'
-import { rateLimit, getClientIp } from '@/lib/rate-limit'
+import { rateLimit, getRateLimitKey } from '@/lib/rate-limit'
 
-// Rate limit: 5 registrations per IP per 10 minutes (anti-brute-force + anti-spam).
+// Rate limit: 5 registrations per IP+UA per 10 minutes (anti-brute-force + anti-spam).
 // Anyone legitimately using the app will not hit this limit.
 const RL_WINDOW = 10 * 60 * 1000
 const RL_MAX = 5
 
 export async function POST(req: NextRequest) {
-  // Rate limit
-  const ip = getClientIp(req)
-  const rl = rateLimit(`register:${ip}`, { windowMs: RL_WINDOW, max: RL_MAX })
+  // Rate limit (per IP + User-Agent fingerprint — better than IP alone on Railway).
+  const rlKey = getRateLimitKey(req)
+  const rl = rateLimit(`register:${rlKey}`, { windowMs: RL_WINDOW, max: RL_MAX })
   if (!rl.ok) {
     return NextResponse.json(
       { error: 'Слишком много попыток регистрации. Попробуй позже.' },

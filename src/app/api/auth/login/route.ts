@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyPassword, setAuthCookie } from '@/lib/auth'
-import { rateLimit, getClientIp } from '@/lib/rate-limit'
+import { rateLimit, getRateLimitKey } from '@/lib/rate-limit'
 
-// Rate limit: 10 login attempts per IP per 5 minutes (anti-brute-force).
+// Rate limit: 10 login attempts per IP+UA per 5 minutes (anti-brute-force).
 const RL_WINDOW = 5 * 60 * 1000
 const RL_MAX = 10
 
 export async function POST(req: NextRequest) {
-  // Rate limit
-  const ip = getClientIp(req)
-  const rl = rateLimit(`login:${ip}`, { windowMs: RL_WINDOW, max: RL_MAX })
+  // Rate limit (per IP + User-Agent fingerprint — better than IP alone on Railway).
+  const rlKey = getRateLimitKey(req)
+  const rl = rateLimit(`login:${rlKey}`, { windowMs: RL_WINDOW, max: RL_MAX })
   if (!rl.ok) {
     return NextResponse.json(
       { error: 'Слишком много попыток входа. Попробуй позже.' },

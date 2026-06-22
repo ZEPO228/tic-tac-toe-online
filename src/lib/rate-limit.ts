@@ -56,12 +56,41 @@ export function rateLimit(key: string, opts: RateLimitOptions = {}): RateLimitRe
   return { ok: true, remaining: max - entry.count, resetAt: entry.resetAt }
 }
 
-/** Extract client IP from NextRequest headers */
+/** Extract client IP from NextRequest headers.
+ *
+ * Railway's load balancer sets `x-forwarded-for` with the real client IP
+ * as the first entry. We also check `x-real-ip` as a fallback (some proxies
+ * set this instead). The `cf-connecting-ip` header is checked for Cloudflare.
+ *
+ * NOTE: On Railway with multiple replicas, in-memory rate limiting is per-instance.
+ * For true cross-instance rate limiting, use Upstash Ratelimit (Redis-based).
+ * The current implementation still helps against abusive single-IP clients
+ * and prevents accidental spam from a single user agent.
+ */
 export function getClientIp(req: Request): string {
   const headers = new Headers(req.headers)
   return (
     headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     headers.get('x-real-ip') ||
+    headers.get('cf-connecting-ip') ||
     'unknown'
   )
+}
+
+/**
+ * Get a rate-limit key that combines IP + user ID (if available) + a
+ * User-Agent fingerprint. This provides better discrimination than IP alone
+ * on Railway, where the load balancer may rotate egress IPs.
+ *
+ * Use this for authenticated endpoints where you have the user ID.
+ */
+export function getRateLimitKey(req: Request, userId?: string): string {
+  const ip = getClientIp(req)
+  const ua = req.headers.get('user-agent')?.slice(0, 100) || 'no-ua'
+  // Simple UA hash (not crypto-secure, just for key uniqueness)
+  const uaHash = ua.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
+  if (userId) {
+    return `u:${userId}:${uaHash}`
+  }
+  return `ip:${ip}:${uaHash}`
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getAuthUser } from '@/lib/auth'
-import { rateLimit, getClientIp } from '@/lib/rate-limit'
+import { rateLimit } from '@/lib/rate-limit'
 
 // Force dynamic rendering — this is an API route that handles POST requests
 export const dynamic = 'force-dynamic'
@@ -23,8 +23,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
-    // Rate limit
-    const ip = getClientIp(req)
+    // Rate limit per user (authenticated endpoint).
     const rl = rateLimit(`avatar-upload:${user.id}`, { windowMs: RL_WINDOW, max: RL_MAX })
     if (!rl.ok) {
       return NextResponse.json(

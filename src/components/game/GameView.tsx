@@ -7,6 +7,7 @@ import { AvatarDisplay } from './AvatarDisplay'
 import { useEffect, useState, useRef } from 'react'
 import { Bot, ArrowLeft, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { playMove, playResult } from '@/lib/game-feedback'
 
 interface GameStateFromServer {
   gameId: string
@@ -92,6 +93,20 @@ export function GameView() {
       if (!state || !Array.isArray(state.board) || state.board.length !== 9) return
       setGameState(state)
       if (state.status === 'finished') {
+        // Determine result from player's perspective and play feedback.
+        // We use useAppStore.getState() to read the latest user/match values
+        // without adding them to the effect's deps (which would re-register
+        // listeners on every state change).
+        const s = useAppStore.getState()
+        const match = s.currentMatch
+        const u = s.user
+        if (match && u) {
+          const mySymbol = match.player1.userId === u.id ? match.player1.symbol : match.player2?.symbol
+          if (mySymbol) {
+            const result = state.winner === 'draw' ? 'draw' : state.winner === mySymbol ? 'win' : 'loss'
+            playResult(result as 'win' | 'loss' | 'draw')
+          }
+        }
         scheduleShowResult()
       }
     }
@@ -198,6 +213,15 @@ export function GameView() {
             winner: data.winner,
             winningLine: data.winningLine,
           })
+          // Audio + haptic feedback for the player's move
+          playMove()
+          // If the bot's response also ended the game, play result sound
+          if (data.status === 'finished') {
+            // Determine result from player's perspective
+            const mySymbol = me.symbol
+            const result = data.winner === 'draw' ? 'draw' : data.winner === mySymbol ? 'win' : 'loss'
+            playResult(result as 'win' | 'loss' | 'draw')
+          }
         } else {
           showToast('error', data.error || 'Ошибка хода')
         }
@@ -211,6 +235,8 @@ export function GameView() {
       const socket = getSocket()
       if (socket) {
         socket.emit('game_move', { gameId: gs.gameId, index })
+        // Play move sound (server will confirm via game_state event)
+        playMove()
       }
     }
   }

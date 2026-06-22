@@ -6,6 +6,9 @@ import { db } from './db'
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me-in-production'
 const COOKIE_NAME = 'ttt_token'
 const TOKEN_EXPIRY = '30d'
+// Short-lived token for Socket.io auth (5 minutes).
+// Even if leaked, becomes useless quickly.
+const SOCKET_TOKEN_EXPIRY = '5m'
 
 export interface AuthPayload {
   userId: string
@@ -20,8 +23,14 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return bcrypt.compare(password, hash)
 }
 
+/** Sign the main 30-day JWT (stored in httpOnly cookie) */
 export function signToken(payload: AuthPayload): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_EXPIRY } as jwt.SignOptions)
+}
+
+/** Sign a short-lived token (5 min) for Socket.io authentication */
+export function signSocketToken(payload: AuthPayload): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: SOCKET_TOKEN_EXPIRY } as jwt.SignOptions)
 }
 
 export function verifyToken(token: string): AuthPayload | null {
@@ -36,7 +45,12 @@ export async function setAuthCookie(payload: AuthPayload): Promise<void> {
   const token = signToken(payload)
   const cookieStore = await cookies()
   cookieStore.set(COOKIE_NAME, token, {
-    httpOnly: false, // needs to be accessible by client-side socket.io
+    // httpOnly: true — JavaScript cannot read this cookie.
+    // This is the critical XSS protection: even if an attacker injects
+    // a script on the page, they cannot steal the token.
+    // Socket.io gets its token via /api/auth/socket-token (server-side reads
+    // the httpOnly cookie and returns a short-lived token).
+    httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: 30 * 24 * 60 * 60, // 30 days

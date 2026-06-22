@@ -34,10 +34,20 @@ async function main() {
     handle(req, res, parsedUrl)
   })
 
+  // Determine the allowed CORS origin for Socket.io.
+  // In production: only the Railway public domain is allowed (prevents
+  //   third-party sites from connecting to our socket).
+  // In development: any origin is allowed (local testing across ports/devices).
+  const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN
+  const allowedOrigin = !dev && railwayDomain
+    ? `https://${railwayDomain}`
+    : true // true = reflect Origin header (dev mode)
+
   const io = new IOServer(server, {
     cors: {
-      origin: '*',
+      origin: allowedOrigin,
       methods: ['GET', 'POST'],
+      credentials: true,
     },
     pingTimeout: 60000,
     pingInterval: 25000,
