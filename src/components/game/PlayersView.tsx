@@ -6,12 +6,14 @@ import { getAvatar } from '@/lib/avatars'
 import { AvatarDisplay } from './AvatarDisplay'
 import { ArrowLeft, Crown, Medal, Trophy } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { AdminBadge } from './AdminBadge'
 
 interface Player {
   id: string
   username: string
   avatar: string
   customAvatar?: string | null
+  isAdmin?: boolean
   gamesPlayed: number
   gamesWon: number
   gamesLost: number
@@ -147,7 +149,8 @@ export function PlayersView() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold truncate flex items-center gap-2">
-                      {player.username}
+                      <span className="truncate">{player.username}</span>
+                      {player.isAdmin && <AdminBadge variant="compact" size="sm" />}
                       {isMe && <span className="text-xs text-primary">(ты)</span>}
                     </div>
                     <div className="text-xs text-muted-foreground flex gap-3">
@@ -210,7 +213,10 @@ function PodiumCard({
           }`}
         />
       </div>
-      <div className="text-xs font-semibold truncate max-w-full text-center mb-1">{player.username}</div>
+      <div className="flex items-center justify-center gap-1">
+        <div className="text-xs font-semibold truncate max-w-full text-center">{player.username}</div>
+        {player.isAdmin && <AdminBadge variant="compact" size="sm" />}
+      </div>
       <div className="text-[10px] text-muted-foreground mb-2">{player.gamesWon} побед</div>
       <div className={`w-full ${height} rounded-t-xl bg-gradient-to-b ${colors[rank as 1|2|3]} border-t-2 flex items-start justify-center pt-2`}>
         {icon}

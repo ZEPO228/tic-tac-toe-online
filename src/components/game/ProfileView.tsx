@@ -8,12 +8,14 @@ import { Button } from '@/components/ui/button'
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Trophy, Target, TrendingUp, Calendar, Save, Loader2 } from 'lucide-react'
 import { AvatarGallery } from './AvatarGallery'
+import { AdminBadge } from './AdminBadge'
 
 interface ProfileData {
   id: string
   username: string
   avatar: string
   customAvatar?: string | null
+  isAdmin?: boolean
   gamesPlayed: number
   gamesWon: number
   gamesLost: number
@@ -165,6 +167,11 @@ export function ProfileView() {
             </div>
           </motion.div>
           <h2 className="text-xl font-bold">{user.username}</h2>
+          {user.isAdmin && (
+            <div className="mt-2 flex justify-center">
+              <AdminBadge variant="full" size="md" />
+            </div>
+          )}
           <p className="text-sm text-muted-foreground">
             {user.avatar === 'custom' ? 'Своё фото' : avatar.label}
           </p>

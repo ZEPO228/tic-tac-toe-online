@@ -7,6 +7,7 @@ import { AvatarDisplay } from './AvatarDisplay'
 import { Gamepad2, Users, MessageCircle, User as UserIcon, Settings, LogOut, Trophy, Activity, Mail } from 'lucide-react'
 import { useEffect, useState, memo, useRef } from 'react'
 import { isAutoQueueEnabled } from '@/lib/game-feedback'
+import { AdminBadge } from './AdminBadge'
 
 interface MenuStats {
   totalUsers: number
@@ -228,7 +229,10 @@ export function MenuView() {
               size={64}
             />
             <div className="flex-1 min-w-0">
-              <div className="font-semibold text-lg truncate">{user.username}</div>
+              <div className="flex items-center gap-2">
+                <div className="font-semibold text-lg truncate">{user.username}</div>
+                {user.isAdmin && <AdminBadge variant="full" size="sm" />}
+              </div>
               <div className="text-sm text-muted-foreground">
                 {user.avatar === 'custom' ? 'Своё фото' : getAvatar(user.avatar).label}
               </div>

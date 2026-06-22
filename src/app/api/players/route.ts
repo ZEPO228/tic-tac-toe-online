@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getAuthUser } from '@/lib/auth'
+import { withAdminFlag } from '@/lib/admin'
 
 export async function GET() {
   const user = await getAuthUser()
@@ -17,6 +18,7 @@ export async function GET() {
       username: true,
       avatar: true,
       customAvatar: true,
+      role: true,
       gamesPlayed: true,
       gamesWon: true,
       gamesLost: true,
@@ -26,7 +28,7 @@ export async function GET() {
   })
 
   return NextResponse.json({
-    players: top,
+    players: top.map(p => withAdminFlag(p)),
     currentUserId: user.id,
   })
 }

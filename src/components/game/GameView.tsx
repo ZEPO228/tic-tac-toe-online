@@ -8,6 +8,7 @@ import { useEffect, useState, useRef } from 'react'
 import { Bot, ArrowLeft, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { playMove, playResult } from '@/lib/game-feedback'
+import { AdminBadge } from './AdminBadge'
 
 interface GameStateFromServer {
   gameId: string
@@ -322,6 +323,7 @@ export function GameView() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-semibold truncate">{opponent.username}</span>
+              {opponent.isAdmin && <AdminBadge variant="compact" size="sm" />}
               {isBotGame && <Bot className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
             </div>
             <div className="text-xs text-muted-foreground">
@@ -406,7 +408,10 @@ export function GameView() {
             size={56}
           />
           <div className="flex-1 min-w-0">
-            <div className="font-semibold truncate">{me.username} (ты)</div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold truncate">{me.username} (ты)</span>
+              {me.isAdmin && <AdminBadge variant="compact" size="sm" />}
+            </div>
             <div className="text-xs text-muted-foreground">
               Символ: <span className="font-mono font-bold text-foreground">{mySymbol}</span>
             </div>

@@ -63,7 +63,7 @@ export async function clearAuthCookie(): Promise<void> {
   cookieStore.delete(COOKIE_NAME)
 }
 
-export async function getAuthUser(): Promise<{ id: string; username: string; avatar: string; customAvatar: string | null; gamesPlayed: number; gamesWon: number; gamesLost: number; gamesDraw: number } | null> {
+export async function getAuthUser(): Promise<{ id: string; username: string; avatar: string; customAvatar: string | null; role: string; gamesPlayed: number; gamesWon: number; gamesLost: number; gamesDraw: number } | null> {
   try {
     const cookieStore = await cookies()
     const token = cookieStore.get(COOKIE_NAME)?.value
@@ -72,7 +72,7 @@ export async function getAuthUser(): Promise<{ id: string; username: string; ava
     if (!payload) return null
     const user = await db.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, username: true, avatar: true, customAvatar: true, gamesPlayed: true, gamesWon: true, gamesLost: true, gamesDraw: true }
+      select: { id: true, username: true, avatar: true, customAvatar: true, role: true, gamesPlayed: true, gamesWon: true, gamesLost: true, gamesDraw: true }
     })
     return user
   } catch {

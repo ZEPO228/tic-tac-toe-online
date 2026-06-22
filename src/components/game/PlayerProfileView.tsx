@@ -7,12 +7,14 @@ import { AvatarDisplay } from './AvatarDisplay'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Trophy, Target, TrendingUp, Calendar, MessageCircle, Gamepad2, Mail } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { AdminBadge } from './AdminBadge'
 
 interface PlayerProfile {
   id: string
   username: string
   avatar: string
   customAvatar?: string | null
+  isAdmin?: boolean
   gamesPlayed: number
   gamesWon: number
   gamesLost: number
@@ -108,6 +110,11 @@ export function PlayerProfileView() {
             />
           </div>
           <h2 className="text-xl font-bold">{data.username}</h2>
+          {data.isAdmin && (
+            <div className="mt-2 flex justify-center">
+              <AdminBadge variant="full" size="md" />
+            </div>
+          )}
           <div className="flex items-center justify-center gap-2 mt-1">
             <span className="text-sm text-muted-foreground">
               {data.avatar === 'custom' ? 'Своё фото' : getAvatar(data.avatar).label}

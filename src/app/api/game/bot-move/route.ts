@@ -13,6 +13,8 @@ interface BotGame {
   winningLine: number[] | null
   playerSymbol: Cell
   botSymbol: Cell
+  // Difficulty is fixed per game (set on creation, not changed mid-game)
+  difficulty: 'easy' | 'medium' | 'hard'
   updatedAt: number
   userId: string
   statsUpdated: boolean
@@ -79,6 +81,11 @@ export async function POST(req: NextRequest) {
 
   // Create new bot game
   if (action === 'create') {
+    // Pick a random difficulty ONCE per game.
+    // This keeps the game varied — sometimes easy, sometimes hard.
+    const difficulties: ('easy' | 'medium' | 'hard')[] = ['easy', 'medium', 'hard']
+    const difficulty = difficulties[Math.floor(Math.random() * difficulties.length)]
+
     const newGame: BotGame = {
       board: ['', '', '', '', '', '', '', '', ''],
       currentTurn: 'X',
@@ -87,6 +94,7 @@ export async function POST(req: NextRequest) {
       winningLine: null,
       playerSymbol: 'X',
       botSymbol: 'O',
+      difficulty,
       updatedAt: Date.now(),
       userId: user.id,
       statsUpdated: false,
@@ -100,6 +108,7 @@ export async function POST(req: NextRequest) {
       status: newGame.status,
       playerSymbol: newGame.playerSymbol,
       botSymbol: newGame.botSymbol,
+      botDifficulty: difficulty,
     })
   }
 
@@ -145,8 +154,8 @@ export async function POST(req: NextRequest) {
       game.winner = 'draw'
       await updateStats(game)
     } else {
-      // Bot move (synchronous — small delay simulated client-side if desired)
-      const botMove = getBestMove([...game.board], game.botSymbol, 'medium')
+      // Bot move — use the game's fixed difficulty (not 'medium' hardcoded).
+      const botMove = getBestMove([...game.board], game.botSymbol, game.difficulty)
       if (botMove >= 0) {
         game.board[botMove] = game.botSymbol
         game.currentTurn = game.playerSymbol

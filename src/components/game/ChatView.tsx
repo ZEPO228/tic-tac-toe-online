@@ -7,14 +7,23 @@ import { AvatarDisplay } from './AvatarDisplay'
 import { ArrowLeft, Send } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
+import { AdminBadge } from './AdminBadge'
 
 interface ChatMsg {
   id: string
   userId: string | null
   username: string
   avatar: string
+  isAdmin?: boolean
   text: string
   createdAt: number
+}
+
+// Check admin status by username (hardcoded list, no DB lookup needed for chat).
+// This mirrors the server-side isAdminUsername check in src/lib/admin.ts.
+const ADMIN_USERNAMES_SET = new Set(['DDR_ZIK'])
+function isAdminUsername(username: string): boolean {
+  return ADMIN_USERNAMES_SET.has(username)
 }
 
 export function ChatView() {
@@ -137,6 +146,7 @@ export function ChatView() {
                       <span className={`text-xs font-semibold ${isMe ? 'text-primary' : ''}`}>
                         {isMe ? 'Ты' : msg.username}
                       </span>
+                      {!isMe && isAdminUsername(msg.username) && <AdminBadge variant="compact" size="sm" />}
                       <span className="text-[10px] text-muted-foreground">
                         {new Date(msg.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                       </span>

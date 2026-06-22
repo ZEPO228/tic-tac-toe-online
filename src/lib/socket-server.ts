@@ -2,6 +2,7 @@ import { Server, Socket } from 'socket.io'
 import jwt from 'jsonwebtoken'
 import { PrismaClient } from '@prisma/client'
 import { getBestMove, checkWinner, isBoardFull, Board, Cell } from './bot'
+import { isAdminUsername } from './admin'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me-in-production'
 
@@ -37,6 +38,7 @@ interface ActiveGame {
   player1: { userId: string; username: string; avatar: string; socketId: string; symbol: Cell }
   player2: { userId: string; username: string; avatar: string; socketId: string; symbol: Cell } | null
   isVsBot: boolean
+  botDifficulty?: 'easy' | 'medium' | 'hard' // Fixed per game — set on game creation
   board: Board
   currentTurn: Cell
   status: 'active' | 'finished'
@@ -87,7 +89,12 @@ function verifyToken(token: string): AuthPayload | null {
 }
 
 function getBotDifficulty(): 'easy' | 'medium' | 'hard' {
-  return 'medium'
+  // Random difficulty for variety — when the user clicks "play with bot"
+  // after waiting 20s in queue, they get a random skill level bot.
+  // This keeps the game fresh (sometimes easy, sometimes hard) instead of
+  // always medium.
+  const difficulties: ('easy' | 'medium' | 'hard')[] = ['easy', 'medium', 'hard']
+  return difficulties[Math.floor(Math.random() * difficulties.length)]
 }
 
 async function updateUserStats(userId: string, result: 'win' | 'loss' | 'draw') {
@@ -149,7 +156,7 @@ function makeBotMove(game: ActiveGame) {
   // Small delay for realism
   setTimeout(() => {
     if (game.status !== 'active') return
-    const move = getBestMove([...game.board], botSymbol, getBotDifficulty())
+    const move = getBestMove([...game.board], botSymbol, game.botDifficulty || 'medium')
     if (move < 0) return
     game.board[move] = botSymbol
     game.currentTurn = game.player1.symbol
@@ -276,8 +283,8 @@ function tryMatch(io: Server) {
     // Notify both
     io!.to(`game:${game.id}`).emit('match_found', {
       gameId: game.id,
-      player1: { userId: first.userId, username: first.username, avatar: first.avatar, symbol: 'X' },
-      player2: { userId: second.userId, username: second.username, avatar: second.avatar, symbol: 'O' },
+      player1: { userId: first.userId, username: first.username, avatar: first.avatar, symbol: 'X', isAdmin: isAdminUsername(first.username) },
+      player2: { userId: second.userId, username: second.username, avatar: second.avatar, symbol: 'O', isAdmin: isAdminUsername(second.username) },
       board: game.board,
       currentTurn: game.currentTurn,
     })
@@ -297,6 +304,10 @@ function startBotGame(io: Server, playerId: string) {
     queue.splice(qIdx, 1)
   }
 
+  // Pick a random difficulty ONCE per game (fixed for the entire game).
+  // This ensures the bot is consistent within a single match.
+  const difficulty = getBotDifficulty()
+
   const game: ActiveGame = {
     id: `game-bot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     player1: {
@@ -314,6 +325,7 @@ function startBotGame(io: Server, playerId: string) {
       symbol: 'O',
     },
     isVsBot: true,
+    botDifficulty: difficulty,
     board: ['', '', '', '', '', '', '', ''],
     currentTurn: 'X',
     status: 'active',
@@ -331,9 +343,10 @@ function startBotGame(io: Server, playerId: string) {
 
   io!.to(`game:${game.id}`).emit('match_found', {
     gameId: game.id,
-    player1: { userId: player.userId, username: player.username, avatar: player.avatar, symbol: 'X' },
+    player1: { userId: player.userId, username: player.username, avatar: player.avatar, symbol: 'X', isAdmin: isAdminUsername(player.username) },
     player2: { userId: 'bot', username: 'Бот', avatar: 'avatar-16', symbol: 'O' },
     isVsBot: true,
+    botDifficulty: difficulty,
     board: game.board,
     currentTurn: game.currentTurn,
   })

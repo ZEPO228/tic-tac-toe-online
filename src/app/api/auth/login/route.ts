@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyPassword, setAuthCookie } from '@/lib/auth'
 import { rateLimit, getRateLimitKey } from '@/lib/rate-limit'
+import { withAdminFlag } from '@/lib/admin'
 
 // Rate limit: 10 login attempts per IP+UA per 5 minutes (anti-brute-force).
 const RL_WINDOW = 5 * 60 * 1000
@@ -38,16 +39,17 @@ export async function POST(req: NextRequest) {
     await setAuthCookie({ userId: user.id, username: user.username })
 
     return NextResponse.json({
-      user: {
+      user: withAdminFlag({
         id: user.id,
         username: user.username,
         avatar: user.avatar,
         customAvatar: user.customAvatar,
+        role: user.role,
         gamesPlayed: user.gamesPlayed,
         gamesWon: user.gamesWon,
         gamesLost: user.gamesLost,
         gamesDraw: user.gamesDraw,
-      }
+      })
     })
   } catch (e) {
     console.error('Login error:', e)

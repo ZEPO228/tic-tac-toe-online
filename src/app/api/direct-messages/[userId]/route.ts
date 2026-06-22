@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getAuthUser } from '@/lib/auth'
+import { withAdminFlag } from '@/lib/admin'
 
 // GET /api/direct-messages/[userId] — get conversation with a specific user
 export async function GET(
@@ -17,7 +18,7 @@ export async function GET(
   // Verify the other user exists
   const otherUser = await db.user.findUnique({
     where: { id: otherUserId },
-    select: { id: true, username: true, avatar: true, customAvatar: true }
+    select: { id: true, username: true, avatar: true, customAvatar: true, role: true }
   })
   if (!otherUser) {
     return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
@@ -47,7 +48,7 @@ export async function GET(
   })
 
   return NextResponse.json({
-    otherUser,
+    otherUser: withAdminFlag(otherUser),
     messages: messages.map(m => ({
       id: m.id,
       senderId: m.senderId,

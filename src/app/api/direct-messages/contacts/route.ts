@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getAuthUser } from '@/lib/auth'
+import { withAdminFlag } from '@/lib/admin'
 
 // GET /api/direct-messages/contacts — list of users the current user has chatted with
 // Performance: uses groupBy instead of loading all messages + N+1 user lookups.
@@ -53,7 +54,7 @@ export async function GET() {
   // 2) Batch-fetch all contact users in a single query (no N+1).
   const contactUsers = await db.user.findMany({
     where: { id: { in: contactIds } },
-    select: { id: true, username: true, avatar: true, customAvatar: true },
+    select: { id: true, username: true, avatar: true, customAvatar: true, role: true },
   })
 
   // 3) Batch-fetch the latest message text per contact (single query).
@@ -94,15 +95,16 @@ export async function GET() {
   // 5) Build the contacts list
   const contacts = contactUsers.map(c => {
     const lastAt = lastMessageAtMap.get(c.id) || new Date(0)
-    return {
+    return withAdminFlag({
       userId: c.id,
       username: c.username,
       avatar: c.avatar,
       customAvatar: c.customAvatar,
+      role: c.role,
       lastMessage: latestTextMap.get(c.id) || '',
       lastMessageAt: lastAt.toISOString(),
       unreadCount: unreadMap.get(c.id) || 0,
-    }
+    })
   })
 
   // Sort by last message time (most recent first)

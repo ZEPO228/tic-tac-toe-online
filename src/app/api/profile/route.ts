@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getAuthUser } from '@/lib/auth'
+import { withAdminFlag } from '@/lib/admin'
 
 export async function GET() {
   const user = await getAuthUser()
@@ -15,6 +16,7 @@ export async function GET() {
       username: true,
       avatar: true,
       customAvatar: true,
+      role: true,
       gamesPlayed: true,
       gamesWon: true,
       gamesLost: true,
@@ -32,10 +34,10 @@ export async function GET() {
     : 0
 
   return NextResponse.json({
-    user: {
+    user: withAdminFlag({
       ...fullUser,
       winRate,
-    }
+    })
   })
 }
 
@@ -59,9 +61,9 @@ export async function PATCH(req: Request) {
           avatar,
           ...(isPreset ? { customAvatar: null } : {})
         },
-        select: { id: true, username: true, avatar: true, customAvatar: true, gamesPlayed: true, gamesWon: true, gamesLost: true, gamesDraw: true }
+        select: { id: true, username: true, avatar: true, customAvatar: true, role: true, gamesPlayed: true, gamesWon: true, gamesLost: true, gamesDraw: true }
       })
-      return NextResponse.json({ user: updated })
+      return NextResponse.json({ user: withAdminFlag(updated) })
     }
 
     return NextResponse.json({ error: 'Нечего обновлять' }, { status: 400 })

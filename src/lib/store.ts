@@ -7,6 +7,7 @@ export interface User {
   username: string
   avatar: string
   customAvatar?: string | null
+  isAdmin?: boolean
   gamesPlayed: number
   gamesWon: number
   gamesLost: number
@@ -19,8 +20,8 @@ export type ViewName = 'login' | 'register' | 'menu' | 'matchmaking' | 'game' | 
 
 export interface MatchData {
   gameId: string
-  player1: { userId: string; username: string; avatar: string; symbol: 'X' | 'O' }
-  player2: { userId: string; username: string; avatar: string; symbol: 'X' | 'O' }
+  player1: { userId: string; username: string; avatar: string; symbol: 'X' | 'O'; isAdmin?: boolean }
+  player2: { userId: string; username: string; avatar: string; symbol: 'X' | 'O'; isAdmin?: boolean }
   isVsBot?: boolean
   board: string[]
   currentTurn: 'X' | 'O'
@@ -59,6 +60,7 @@ export interface Contact {
   username: string
   avatar: string
   customAvatar?: string | null
+  isAdmin?: boolean
   lastMessage: string
   lastMessageAt: string
   unreadCount: number

@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { hashPassword, setAuthCookie } from '@/lib/auth'
 import { AVATARS } from '@/lib/avatars'
 import { rateLimit, getRateLimitKey } from '@/lib/rate-limit'
+import { withAdminFlag } from '@/lib/admin'
 
 // Rate limit: 5 registrations per IP+UA per 10 minutes (anti-brute-force + anti-spam).
 // Anyone legitimately using the app will not hit this limit.
@@ -62,16 +63,17 @@ export async function POST(req: NextRequest) {
     await setAuthCookie({ userId: user.id, username: user.username })
 
     return NextResponse.json({
-      user: {
+      user: withAdminFlag({
         id: user.id,
         username: user.username,
         avatar: user.avatar,
         customAvatar: user.customAvatar,
+        role: user.role,
         gamesPlayed: user.gamesPlayed,
         gamesWon: user.gamesWon,
         gamesLost: user.gamesLost,
         gamesDraw: user.gamesDraw,
-      }
+      })
     })
   } catch (e) {
     console.error('Register error:', e)

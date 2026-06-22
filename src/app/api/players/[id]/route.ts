@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getAuthUser } from '@/lib/auth'
+import { withAdminFlag } from '@/lib/admin'
 
 // CUID pattern: starts with 'c' followed by 23 base36 chars (lowercase).
 // Rejecting malformed IDs early avoids hitting the DB with garbage.
@@ -30,6 +31,7 @@ export async function GET(
       username: true,
       avatar: true,
       customAvatar: true,
+      role: true,
       gamesPlayed: true,
       gamesWon: true,
       gamesLost: true,
@@ -46,14 +48,12 @@ export async function GET(
     ? Math.round((player.gamesWon / player.gamesPlayed) * 100)
     : 0
 
-  // Note: online status is determined client-side via socket.io
-  // The API returns the player data; the client checks against onlineUserIds
   return NextResponse.json({
-    player: {
+    player: withAdminFlag({
       ...player,
       winRate,
       isCurrentUser: player.id === currentUser.id,
-    },
+    }),
     currentUserId: currentUser.id,
   })
 }

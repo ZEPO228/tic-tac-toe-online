@@ -5,6 +5,7 @@ import { useAppStore, Contact } from '@/lib/store'
 import { AvatarDisplay } from './AvatarDisplay'
 import { ArrowLeft, MessageCircle, Mail, Trash2 } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
+import { AdminBadge } from './AdminBadge'
 
 export function PrivateChatsView() {
   const { setView, setSelectedPlayerId, onlineUserIds, showToast } = useAppStore()
@@ -134,7 +135,10 @@ export function PrivateChatsView() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold truncate">{contact.username}</span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="font-semibold truncate">{contact.username}</span>
+                          {contact.isAdmin && <AdminBadge variant="compact" size="sm" />}
+                        </div>
                         <span className="text-[10px] text-muted-foreground shrink-0">
                           {formatTime(contact.lastMessageAt)}
                         </span>

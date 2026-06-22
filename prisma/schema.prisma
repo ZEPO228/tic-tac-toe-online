@@ -16,6 +16,7 @@ model User {
   password      String
   avatar        String   @default("avatar-1")
   customAvatar  String?  // Base64 data URI for uploaded avatars
+  role          String   @default("user") // user | admin
   gamesPlayed   Int      @default(0)
   gamesWon      Int      @default(0)
   gamesLost     Int      @default(0)

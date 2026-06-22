@@ -8,12 +8,14 @@ import { ArrowLeft, Send, Trash2, MoreVertical } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { AdminBadge } from './AdminBadge'
 
 interface OtherUser {
   id: string
   username: string
   avatar: string
   customAvatar?: string | null
+  isAdmin?: boolean
 }
 
 export function PrivateChatView() {
@@ -228,7 +230,10 @@ export function PrivateChatView() {
           onClick={openUserProfile}
           className="flex-1 min-w-0 text-left cursor-pointer hover:opacity-80 transition-opacity"
         >
-          <h1 className="text-base font-bold truncate">{otherUser.username}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-base font-bold truncate">{otherUser.username}</h1>
+            {otherUser.isAdmin && <AdminBadge variant="compact" size="sm" />}
+          </div>
           <p className="text-xs text-muted-foreground">
             {isOnline ? (
               <span className="text-primary">онлайн</span>
