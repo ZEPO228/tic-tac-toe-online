@@ -326,7 +326,7 @@ function startBotGame(io: Server, playerId: string) {
     },
     isVsBot: true,
     botDifficulty: difficulty,
-    board: ['', '', '', '', '', '', '', ''],
+    board: ['', '', '', '', '', '', '', '', ''],
     currentTurn: 'X',
     status: 'active',
     winner: null,
