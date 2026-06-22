@@ -27,7 +27,7 @@ function isAdminUsername(username: string): boolean {
 }
 
 export function ChatView() {
-  const { setView, user, messages, setMessages, addMessage, setSelectedPlayerId } = useAppStore()
+  const { setView, user, messages, setMessages, addMessage, setSelectedPlayerId, showToast } = useAppStore()
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -86,12 +86,15 @@ export function ChatView() {
     e.preventDefault()
     const trimmed = text.trim()
     if (!trimmed || sending) return
-    setSending(true)
     const socket = getSocket()
-    if (socket) {
-      socket.emit('chat_message', { text: trimmed })
-      setText('')
+    if (!socket || !socket.connected) {
+      // Don't clear text — show error so user knows the message wasn't sent
+      showToast('error', 'Нет соединения с сервером. Сообщение не отправлено.')
+      return
     }
+    setSending(true)
+    socket.emit('chat_message', { text: trimmed })
+    setText('')
     // Reset sending state after a short delay (prevents spam-clicking).
     // Cleared on unmount via the effect above.
     sendingTimerRef.current = setTimeout(() => setSending(false), 200)
@@ -184,7 +187,7 @@ export function ChatView() {
       {/* Input */}
       <form
         onSubmit={handleSend}
-        className="p-3 border-t border-border bg-card flex gap-2 items-end"
+        className="p-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] border-t border-border bg-card flex gap-2 items-end"
       >
         <Input
           value={text}

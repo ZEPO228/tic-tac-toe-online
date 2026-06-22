@@ -25,6 +25,9 @@ export function GameView() {
   const [showResult, setShowResult] = useState(false)
   const [httpGameId, setHttpGameId] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  // processingRef mirrors isProcessing for use in async closures where
+  // isProcessing might be stale (React state updates are async).
+  const processingRef = useRef(false)
   const [botGameError, setBotGameError] = useState<string | null>(null)
   const statsUpdatedRef = useRef(false)
   const resultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -112,7 +115,29 @@ export function GameView() {
       }
     }
 
-    const onGameEnd = () => {
+    const onGameEnd = (payload: { gameId: string; winner: string | null; winningLine?: number[] | null }) => {
+      // game_end fires after game_state, but sometimes game_state validation
+      // fails or the event order is different. To be safe, ensure gameState
+      // is marked as finished so the result modal can compute the result.
+      const s = useAppStore.getState()
+      const match = s.currentMatch
+      const u = s.user
+      const currentGs = s.gameState
+      if (match && u && currentGs && currentGs.status !== 'finished') {
+        // Determine winner from payload and update gameState
+        const mySymbol = match.player1.userId === u.id ? match.player1.symbol : match.player2?.symbol
+        const winner = payload.winner as 'X' | 'O' | 'draw' | null
+        setGameState({
+          ...currentGs,
+          status: 'finished',
+          winner,
+          winningLine: payload.winningLine || null,
+        })
+        if (mySymbol && winner) {
+          const result = winner === 'draw' ? 'draw' : winner === mySymbol ? 'win' : 'loss'
+          playResult(result as 'win' | 'loss' | 'draw')
+        }
+      }
       scheduleShowResult()
     }
 
@@ -193,10 +218,11 @@ export function GameView() {
     if (gs.status !== 'active') return
     if (gs.board[index] !== '') return
     if (!isMyTurn) return
-    if (isProcessing) return
+    if (isProcessing || processingRef.current) return
 
     if (isBotGame && httpGameId) {
       // HTTP-based bot game
+      processingRef.current = true
       setIsProcessing(true)
       try {
         const res = await fetch('/api/game/bot-move', {
@@ -229,6 +255,7 @@ export function GameView() {
       } catch {
         showToast('error', 'Сетевая ошибка')
       } finally {
+        processingRef.current = false
         setIsProcessing(false)
       }
     } else {
@@ -318,6 +345,7 @@ export function GameView() {
         >
           <AvatarDisplay
             avatar={opponent.avatar}
+            customAvatar={opponent.customAvatar}
             size={56}
           />
           <div className="flex-1 min-w-0">
@@ -405,6 +433,7 @@ export function GameView() {
         >
           <AvatarDisplay
             avatar={me.avatar}
+            customAvatar={me.customAvatar}
             size={56}
           />
           <div className="flex-1 min-w-0">

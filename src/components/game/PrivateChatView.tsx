@@ -29,7 +29,6 @@ export function PrivateChatView() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const socketRef = useRef(getSocket())
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const sendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -43,7 +42,19 @@ export function PrivateChatView() {
         setOtherUser(data.otherUser)
       }
       if (data.messages) {
-        setMessages(data.messages)
+        // Merge instead of replace — preserves optimistic DMs that were
+        // added locally but might not be on the server yet.
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id))
+          const newMsgs = (data.messages as DirectMessage[]).filter(m => !existingIds.has(m.id))
+          // If we have new messages, append them. Otherwise keep prev as-is
+          // (don't replace with identical data — avoids unnecessary re-renders).
+          if (newMsgs.length === 0) return prev
+          // Sort by createdAt to maintain chronological order
+          return [...prev, ...newMsgs].sort((a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          )
+        })
       }
     } catch (e) {
       console.error('Failed to load messages:', e)
@@ -64,8 +75,9 @@ export function PrivateChatView() {
     // Reduced from 3s to 5s to lower API pressure.
     pollingRef.current = setInterval(loadMessages, 5000)
 
-    // Also listen for real-time messages via socket
-    const socket = socketRef.current
+    // Also listen for real-time messages via socket.
+    // Fetch socket fresh (do NOT cache in a ref — see ChatView pattern).
+    const socket = getSocket()
     let onDmMessage: ((msg: DirectMessage & { createdAt: string | number }) => void) | null = null
     if (socket) {
       onDmMessage = (msg) => {
@@ -100,6 +112,14 @@ export function PrivateChatView() {
       }
     }
   }, [selectedPlayerId, user?.id, setView])
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current)
+      if (sendingTimerRef.current) clearTimeout(sendingTimerRef.current)
+    }
+  }, [])
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -199,7 +219,7 @@ export function PrivateChatView() {
       initial={{ opacity: 0, x: 30 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -30 }}
-      className="min-h-[100dvh] gradient-bg flex flex-col"
+      className="min-h-[100dvh] gradient-bg flex flex-col relative"
     >
       {/* Header — opaque background, covers safe area */}
       <div className="flex items-center gap-3 p-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] border-b border-border gradient-bg z-20">
@@ -393,7 +413,7 @@ export function PrivateChatView() {
       {/* Input */}
       <form
         onSubmit={handleSend}
-        className="p-3 border-t border-border bg-card flex gap-2 items-end"
+        className="p-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] border-t border-border bg-card flex gap-2 items-end"
       >
         <Input
           value={text}

@@ -5,7 +5,7 @@ import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { ArrowLeft, Volume2, Vibrate, Sun, Moon, Monitor, Info, Check, Lock, type LucideIcon } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTheme, ThemeMode } from '@/lib/use-theme'
 import { AnimatedLogo } from './AnimatedLogo'
 import { invalidateSettingsCache, playMove } from '@/lib/game-feedback'
@@ -27,6 +27,14 @@ export function SettingsView() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [changingPassword, setChangingPassword] = useState(false)
   const [passwordError, setPasswordError] = useState('')
+  const logoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup logout timer on unmount
+  useEffect(() => {
+    return () => {
+      if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current)
+    }
+  }, [])
 
   // Load from localStorage
   useEffect(() => {
@@ -92,7 +100,8 @@ export function SettingsView() {
         showToast('success', 'Пароль изменён. Войдите заново.')
         // Clear local state — the server already cleared the cookie.
         // Force the user back to the login screen.
-        setTimeout(() => {
+        // Timer is cleaned up on unmount via logoutTimerRef.
+        logoutTimerRef.current = setTimeout(() => {
           setUser(null)
           setView('login')
         }, 1500)

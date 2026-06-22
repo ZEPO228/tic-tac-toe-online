@@ -257,7 +257,7 @@
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
+  width: 100%;
   height: 100vh;
   height: 100dvh;
   z-index: -1;
@@ -286,13 +286,13 @@ html, body {
   text-size-adjust: 100%;
 }
 
-/* GPU layer promotion for scrollable containers — prevents repaint jank */
-.max-w-md, .flex-1, .overflow-y-auto, .custom-scroll {
-  /* contain: layout style paint isolates the element for rendering */
+/* GPU layer promotion ONLY for scrollable containers — prevents repaint jank.
+   NOTE: Do NOT apply translateZ(0) + contain to broad selectors like .max-w-md
+   or .flex-1 — it breaks position:fixed/sticky descendants and can cause
+   dropdown menus to be clipped or misplaced. */
+.overflow-y-auto, .custom-scroll {
   contain: layout style;
-  /* translateZ(0) promotes to GPU layer — no repaints during scroll */
   transform: translateZ(0);
-  /* overscroll-behavior: contain prevents scroll chaining to parent */
   overscroll-behavior: contain;
 }
 
@@ -308,15 +308,17 @@ button, a, [role="button"] {
   overscroll-behavior: contain;
 }
 
-/* Larger touch targets on mobile (44px minimum per Apple HIG) */
+/* Larger touch targets on mobile (44px minimum per Apple HIG).
+   Applied to icon-only buttons (aria-label present) and all interactive
+   buttons. Switches are excluded because they have their own sizing. */
 @media (max-width: 768px) {
   button:not([data-slot="switch"]):not([data-slot="switch-thumb"]), [role="button"]:not([data-slot="switch"]) {
-    min-height: 36px;
+    min-height: 44px;
   }
-  /* Keep small icon buttons (24px) tappable but with larger hit area */
-  button[aria-label]:not([data-slot="switch"]) {
-    min-height: 40px;
-    min-width: 40px;
+  /* Icon-only buttons need both min dimensions for a square hit area */
+  button[aria-label]:not([data-slot="switch"]):not([data-slot="switch-thumb"]) {
+    min-height: 44px;
+    min-width: 44px;
   }
 }
 

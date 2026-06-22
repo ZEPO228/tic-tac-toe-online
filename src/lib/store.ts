@@ -20,8 +20,8 @@ export type ViewName = 'login' | 'register' | 'menu' | 'matchmaking' | 'game' | 
 
 export interface MatchData {
   gameId: string
-  player1: { userId: string; username: string; avatar: string; symbol: 'X' | 'O'; isAdmin?: boolean }
-  player2: { userId: string; username: string; avatar: string; symbol: 'X' | 'O'; isAdmin?: boolean }
+  player1: { userId: string; username: string; avatar: string; customAvatar?: string | null; symbol: 'X' | 'O'; isAdmin?: boolean }
+  player2: { userId: string; username: string; avatar: string; customAvatar?: string | null; symbol: 'X' | 'O'; isAdmin?: boolean }
   isVsBot?: boolean
   board: string[]
   currentTurn: 'X' | 'O'

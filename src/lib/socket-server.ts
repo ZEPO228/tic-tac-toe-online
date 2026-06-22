@@ -19,6 +19,7 @@ interface OnlinePlayer {
   userId: string
   username: string
   avatar: string
+  customAvatar?: string | null
   socketId: string
   status: 'menu' | 'queue' | 'game' | 'chat'
   gameId?: string
@@ -28,6 +29,7 @@ interface QueuedPlayer {
   userId: string
   username: string
   avatar: string
+  customAvatar?: string | null
   socketId: string
   joinedAt: number
   timer?: NodeJS.Timeout
@@ -35,8 +37,8 @@ interface QueuedPlayer {
 
 interface ActiveGame {
   id: string
-  player1: { userId: string; username: string; avatar: string; socketId: string; symbol: Cell }
-  player2: { userId: string; username: string; avatar: string; socketId: string; symbol: Cell } | null
+  player1: { userId: string; username: string; avatar: string; customAvatar?: string | null; socketId: string; symbol: Cell }
+  player2: { userId: string; username: string; avatar: string; customAvatar?: string | null; socketId: string; symbol: Cell } | null
   isVsBot: boolean
   botDifficulty?: 'easy' | 'medium' | 'hard' // Fixed per game — set on game creation
   board: Board
@@ -248,6 +250,7 @@ function tryMatch(io: Server) {
         userId: first.userId,
         username: first.username,
         avatar: first.avatar,
+        customAvatar: first.customAvatar,
         socketId: first.socketId,
         symbol: 'X',
       },
@@ -255,6 +258,7 @@ function tryMatch(io: Server) {
         userId: second.userId,
         username: second.username,
         avatar: second.avatar,
+        customAvatar: second.customAvatar,
         socketId: second.socketId,
         symbol: 'O',
       },
@@ -283,8 +287,8 @@ function tryMatch(io: Server) {
     // Notify both
     io!.to(`game:${game.id}`).emit('match_found', {
       gameId: game.id,
-      player1: { userId: first.userId, username: first.username, avatar: first.avatar, symbol: 'X', isAdmin: isAdminUsername(first.username) },
-      player2: { userId: second.userId, username: second.username, avatar: second.avatar, symbol: 'O', isAdmin: isAdminUsername(second.username) },
+      player1: { userId: first.userId, username: first.username, avatar: first.avatar, customAvatar: first.customAvatar, symbol: 'X', isAdmin: isAdminUsername(first.username) },
+      player2: { userId: second.userId, username: second.username, avatar: second.avatar, customAvatar: second.customAvatar, symbol: 'O', isAdmin: isAdminUsername(second.username) },
       board: game.board,
       currentTurn: game.currentTurn,
     })
@@ -314,6 +318,7 @@ function startBotGame(io: Server, playerId: string) {
       userId: player.userId,
       username: player.username,
       avatar: player.avatar,
+      customAvatar: player.customAvatar,
       socketId: player.socketId,
       symbol: 'X',
     },
@@ -343,7 +348,7 @@ function startBotGame(io: Server, playerId: string) {
 
   io!.to(`game:${game.id}`).emit('match_found', {
     gameId: game.id,
-    player1: { userId: player.userId, username: player.username, avatar: player.avatar, symbol: 'X', isAdmin: isAdminUsername(player.username) },
+    player1: { userId: player.userId, username: player.username, avatar: player.avatar, customAvatar: player.customAvatar, symbol: 'X', isAdmin: isAdminUsername(player.username) },
     player2: { userId: 'bot', username: 'Бот', avatar: 'avatar-16', symbol: 'O' },
     isVsBot: true,
     botDifficulty: difficulty,
@@ -376,14 +381,16 @@ export function setupSocketIO(ioServer: Server) {
     const userId = (socket as any).userId as string
     const username = (socket as any).username as string
 
-    // Get user from DB to fetch avatar
-    db.user.findUnique({ where: { id: userId }, select: { avatar: true } })
+    // Get user from DB to fetch avatar (including custom avatar)
+    db.user.findUnique({ where: { id: userId }, select: { avatar: true, customAvatar: true } })
       .then(u => {
         const avatar = u?.avatar || 'avatar-1'
+        const customAvatar = u?.customAvatar || null
         onlinePlayers.set(userId, {
           userId,
           username,
           avatar,
+          customAvatar,
           socketId: socket.id,
           status: 'menu',
         })
@@ -403,6 +410,7 @@ export function setupSocketIO(ioServer: Server) {
         userId,
         username: player.username,
         avatar: player.avatar,
+        customAvatar: player.customAvatar,
         socketId: socket.id,
         joinedAt: Date.now(),
       }

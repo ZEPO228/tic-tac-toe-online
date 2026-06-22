@@ -11,14 +11,16 @@ export function MatchmakingView() {
   const { setView, setCurrentMatch, setGameState, queueCount, setQueueCount, botAvailable, setBotAvailable, showToast } = useAppStore()
   const [elapsed, setElapsed] = useState(0)
   const startedAtRef = useRef<number>(Date.now())
-  const socketRef = useRef(getSocket())
+  const cancelledRef = useRef(false)
 
   useEffect(() => {
     startedAtRef.current = Date.now()
     setBotAvailable(false)
     setQueueCount(0)
+    cancelledRef.current = false
 
-    const socket = socketRef.current
+    // Fetch socket fresh (do NOT cache in a ref).
+    const socket = getSocket()
     if (!socket) {
       showToast('error', 'Нет соединения с сервером')
       setView('menu')
@@ -33,6 +35,14 @@ export function MatchmakingView() {
     // Listeners
     const onQueueCount = ({ count }: { count: number }) => setQueueCount(count)
     const onMatchFound = (match: MatchData) => {
+      // Ignore match_found if user already cancelled — prevents race condition
+      // where match is found right as user hits Cancel.
+      if (cancelledRef.current) {
+        // Leave the queue/game immediately to avoid being stuck in a game
+        // the user didn't want.
+        socket.emit('queue_leave')
+        return
+      }
       // Basic shape validation before trusting server payload
       if (!match || !match.gameId || !Array.isArray(match.board) || match.board.length !== 9) {
         showToast('error', 'Некорректный ответ сервера')
@@ -50,14 +60,18 @@ export function MatchmakingView() {
       })
       setView('game')
     }
-    const onBotAvailable = () => setBotAvailable(true)
+    const onBotAvailable = () => {
+      if (!cancelledRef.current) setBotAvailable(true)
+    }
 
     socket.on('queue_count', onQueueCount)
     socket.on('match_found', onMatchFound)
     socket.on('bot_available', onBotAvailable)
 
     // Join queue — wait for socket to be connected first.
-    const joinQueue = () => socket.emit('queue_join')
+    const joinQueue = () => {
+      if (!cancelledRef.current) socket.emit('queue_join')
+    }
     if (socket.connected) {
       joinQueue()
     } else {
@@ -79,7 +93,8 @@ export function MatchmakingView() {
   }, [])
 
   function handleCancel() {
-    const socket = socketRef.current
+    cancelledRef.current = true
+    const socket = getSocket()
     if (socket) {
       socket.emit('queue_leave')
     }
@@ -87,14 +102,14 @@ export function MatchmakingView() {
   }
 
   function handlePlayBot() {
-    const socket = socketRef.current
+    if (cancelledRef.current) return
+    const socket = getSocket()
     if (socket) {
       socket.emit('play_with_bot')
     }
   }
 
   const dots = '.'.repeat((elapsed % 3) + 1)
-  const remaining = Math.max(0, 20 - elapsed)
   const progress = Math.min(100, (elapsed / 20) * 100)
 
   return (
