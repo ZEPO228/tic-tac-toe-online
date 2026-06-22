@@ -51,3 +51,4 @@ db/
 download/
 /upload/
 *.tar.gz
+tsconfig.tsbuildinfo
